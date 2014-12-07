@@ -26,6 +26,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "ubertooth.h"
 #include <btbb.h>
@@ -35,6 +36,8 @@ extern int max_ac_errors;
 extern btbb_piconet *follow_pn;
 extern FILE *dumpfile;
 
+struct libusb_device_handle *devh = NULL;
+
 static void usage()
 {
 	printf("ubertooth-follow - active(bluez) CLK discovery and follow for a particular UAP/LAP\n");
@@ -43,6 +46,10 @@ static void usage()
 	printf("\t-l<LAP> (in hexadecimal)\n");
 	printf("\t-u<UAP> (in hexadecimal)\n");
 	printf("\t-U<0-7> set ubertooth device to use\n");
+	printf("\t-r<filename> capture packets to PCAPNG file\n");
+#if defined(USE_PCAP)
+	printf("\t-q<filename> capture packets to PCAP file\n");
+#endif
 	printf("\t-e max_ac_errors\n");
 	printf("\t-d filename\n");
 	printf("\t-a Enable AFH\n");
@@ -50,6 +57,15 @@ static void usage()
 	printf("\t-w USB delay in 625us timeslots (default:5)\n");
 	printf("\nLAP and UAP are both required, if not given they are read from the local device, in some cases this may give the incorrect address.\n");
 //	printf("If an input file is not specified, an Ubertooth device is used for live capture.\n");
+}
+
+void cleanup(int sig)
+{
+	sig = sig;
+	if (devh) {
+		ubertooth_stop(devh);
+	}
+	exit(0);
 }
 
 int main(int argc, char *argv[])
@@ -62,7 +78,6 @@ int main(int argc, char *argv[])
 	char *end, ubertooth_device = -1;
 	char *bt_dev = "hci0";
     char addr[19] = { 0 };
-	struct libusb_device_handle *devh = NULL;
 	uint32_t clock;
 	uint16_t accuracy, handle, offset;
 	bdaddr_t bdaddr;
@@ -73,7 +88,7 @@ int main(int argc, char *argv[])
 
 	pn = btbb_piconet_new();
 
-	while ((opt=getopt(argc,argv,"hl:u:U:e:d:ab:w:")) != EOF) {
+	while ((opt=getopt(argc,argv,"hl:u:U:e:d:ab:w:r:q:")) != EOF) {
 		switch(opt) {
 		case 'l':
 			lap = strtol(optarg, &end, 16);
@@ -90,6 +105,28 @@ int main(int argc, char *argv[])
 		case 'U':
 			ubertooth_device = atoi(optarg);
 			break;
+		case 'r':
+			if (!h_pcapng_bredr) {
+				if (btbb_pcapng_create_file( optarg, "Ubertooth", &h_pcapng_bredr )) {
+					err(1, "create_bredr_capture_file: ");
+				}
+			}
+			else {
+				printf("Ignoring extra capture file: %s\n", optarg);
+			}
+			break;
+#if defined(USE_PCAP)
+		case 'q':
+			if (!h_pcap_bredr) {
+				if (btbb_pcap_create_file(optarg, &h_pcap_bredr)) {
+					err(1, "btbb_pcap_create_file: ");
+				}
+			}
+			else {
+				printf("Ignoring extra capture file: %s\n", optarg);
+			}
+			break;
+#endif
 		case 'e':
 			max_ac_errors = atoi(optarg);
 			break;
@@ -163,35 +200,49 @@ int main(int argc, char *argv[])
 			perror("Reading clock offset failed");
 		}
 		clock += offset;
-
-		//Experimental AFH map reading from remote device
-		if(afh_enabled) {
-			if(hci_read_afh_map(sock, handle, &mode, afh_map, 1000) < 0) {
-				perror("HCI read AFH map request failed");
-				//exit(1);
-			}
-			if(mode == 0x01) {
-				btbb_piconet_set_afh_map(pn, afh_map);
-				btbb_print_afh_map(pn);
-			} else {
-				printf("AFH disabled.\n");
-				afh_enabled = 0;
-			}
-		}
-		if (cc) {
-			usleep(10000);
-			hci_disconnect(sock, handle, HCI_OE_USER_ENDED_CONNECTION, 10000);
-		}
 	} else {
 			usage();
 			return 1;
 	}
-
+	
+	if (h_pcapng_bredr) {
+		btbb_pcapng_record_bdaddr(h_pcapng_bredr,
+								  (((uint32_t)uap)<<24)|lap,
+								  0xff, 0);
+	}
+	
+	//Experimental AFH map reading from remote device
+	if(afh_enabled) {
+		if(hci_read_afh_map(sock, handle, &mode, afh_map, 1000) < 0) {
+			perror("HCI read AFH map request failed");
+			//exit(1);
+		}
+		if(mode == 0x01) {
+			btbb_piconet_set_afh_map(pn, afh_map);
+			btbb_print_afh_map(pn);
+		} else {
+			printf("AFH disabled.\n");
+			afh_enabled = 0;
+		}
+	} else {
+		printf("Not use AFH\n");
+	}
+	if (cc) {
+		usleep(10000);
+		hci_disconnect(sock, handle, HCI_OE_USER_ENDED_CONNECTION, 10000);
+	}
+	
+	/* Clean up on exit. */
+	signal(SIGINT,cleanup);
+	signal(SIGQUIT,cleanup);
+	signal(SIGTERM,cleanup);
+	
 	devh = ubertooth_start(ubertooth_device);
 	if (devh == NULL) {
 		usage();
 		return 1;
 	}
+	cmd_set_bdaddr(devh, btbb_piconet_get_bdaddr(pn));
 	if(afh_enabled)
 		cmd_set_afh_map(devh, afh_map);
 	btbb_piconet_set_clk_offset(pn, clock+delay);

@@ -28,14 +28,17 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(INSTALL_DEFAULT_BINDIR "bin" CACHE STRING "Appended to CMAKE_INSTALL_PREFIX")
 
+set( VERSION ${MAJOR_VERSION}.${MINOR_VERSION} )
+add_definitions( -DVERSION="${VERSION}" )
+
+# Comment the following out for releases.
+set(CMAKE_C_FLAGS "$ENV{CFLAGS}")
+
 add_subdirectory(libubertooth)
 add_subdirectory(ubertooth-tools)
 if(NOT DISABLE_PYTHON)
 	add_subdirectory(python)
 endif()
-
-# Comment the following out for releases.
-set(CMAKE_C_FLAGS "$ENV{CFLAGS}")
 
 # Create uninstall target
 configure_file(
