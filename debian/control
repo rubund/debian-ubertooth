@@ -6,6 +6,8 @@ Build-Depends: debhelper (>= 9),
                libusb-1.0-0-dev,
                libpcap0.8-dev,
                cmake,
+               pkg-config,
+               libbluetooth-dev,
                gcc-arm-none-eabi
 Standards-Version: 3.9.6
 Vcs-Git: https://github.com/greatscottgadgets/ubertooth.git
@@ -26,6 +28,7 @@ Section: libdevel
 Depends: libubertooth0 (= ${binary:Version}),
          libusb-1.0-0-dev,
          libpcap0.8-dev,
+         libbluetooth-dev,
          ${misc:Depends}
 Description: Development files for libubertooth0
 
