@@ -6,7 +6,7 @@ Build-Depends: debhelper (>= 9),
                libusb-1.0-0-dev,
                libpcap0.8-dev,
                cmake,
-               arm-none-eabi-gcc
+               gcc-arm-none-eabi
 Standards-Version: 3.9.6
 Vcs-Git: https://github.com/greatscottgadgets/ubertooth.git
 Vcs-Browser: https://github.com/greatscottgadgets/ubertooth/
