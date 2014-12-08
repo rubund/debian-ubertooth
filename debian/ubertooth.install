@@ -1,1 +1,3 @@
 usr/bin/*
+usr/lib/python2.7/dist-packages/*/*.py
+usr/lib/python2.7/dist-packages/*-info
