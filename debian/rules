@@ -14,15 +14,25 @@ export DH_OPTIONS
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 VERSION := $(shell dpkg-parsechangelog | sed -n 's/^Version: \(.*\)-.*/\1/p')
 %:
-	dh $@ --buildsystem cmake --sourcedirectory=host --builddirectory=build
+	dh $@
+
+override_dh_auto_clean:
+	dh_auto_clean --sourcedirectory=host
+	dh_auto_clean --sourcedirectory=firmware
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DDISABLE_PYTHON=ON -DCMAKE_INSTALL_LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
+	dh_auto_configure --sourcedirectory=host -- -DDISABLE_PYTHON=ON -DCMAKE_INSTALL_LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
+	dh_auto_configure --sourcedirectory=firmware
 
-override_dh_install:
-	dh_install
+override_dh_auto_build:
+	dh_auto_build --sourcedirectory=host
+	dh_auto_build --sourcedirectory=firmware
+
+override_dh_auto_install:
+	dh_auto_install --sourcedirectory=host
 	# check all necessary headers are included
 	$(CC) -c debian/header-check.c -Idebian/libubertooth-dev/usr/include `pkg-config --cflags libusb-1.0` -o /dev/null
+	dh_auto_install --sourcedirectory=firmware
 
 override_dh_strip:
 	dh_strip -plibubertooth0 --keep-debug --dbg-package=libubertooth0-dbg
