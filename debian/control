@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Ruben Undheim <ruben.undheim@gmail.com>
 Build-Depends: debhelper (>= 9),
                libusb-1.0-0-dev,
-               libpcap0.8-dev,
+               libpcap-dev,
                cmake,
                pkg-config,
                libbluetooth-dev,
@@ -29,7 +29,7 @@ Architecture: any
 Section: libdevel
 Depends: libubertooth0 (= ${binary:Version}),
          libusb-1.0-0-dev,
-         libpcap0.8-dev,
+         libpcap-dev,
          libbluetooth-dev,
          libbtbb-dev,
          ${misc:Depends}
