@@ -1,5 +1,5 @@
 ubertooth (20141130git241874e-1) unstable; urgency=low
 
-  * Self-made package
+  * Initial release (Closes: #772509)
 
- -- Ruben Undheim <ruben.undheim@gmail.com>  Sun, 08 Dec 2014 00:31:44 +0100
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Mon, 08 Dec 2014 17:30:44 +0100
