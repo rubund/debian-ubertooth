@@ -1,1 +1,2 @@
 usr/lib/lib*.so.*
+host/libubertooth/40-ubertooth.rules lib/udev/rules.d/
