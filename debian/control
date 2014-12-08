@@ -9,6 +9,7 @@ Build-Depends: debhelper (>= 9),
                pkg-config,
                libbluetooth-dev,
                libbtbb-dev,
+               python-all-dev,
                gcc-arm-none-eabi
 Standards-Version: 3.9.6
 Vcs-Git: https://github.com/greatscottgadgets/ubertooth.git
@@ -46,7 +47,11 @@ Package: ubertooth
 Architecture: any
 Depends: libubertooth0 (= ${binary:Version}),
          ${shlibs:Depends},
-         ${misc:Depends}
+         ${misc:Depends},
+         python-numpy,
+#        pyusb-1.0 <  This high version still not in debian :(
+         python-pyside.qtcore,
+         python-pyside.qtgui
 Description: Tools for ubertooth
 
 Package: ubertooth-firmware
