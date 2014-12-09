@@ -5558,5 +5558,5 @@ Index: ubertooth/host/python/usb/setup.py.in
 +      author_email='pyusb-team@email.com',
 +      url='https://www.python.org/sigs/distutils-sig/',
 +      package_dir = { '': '${CMAKE_CURRENT_SOURCE_DIR}' },
-+      packages=['ubertooth_pyusb'],
++      packages=['ubertooth_pyusb','ubertooth_pyusb.backend'],
 +     )
