@@ -53,11 +53,11 @@ Depends: libubertooth0 (= ${binary:Version}),
 #        pyusb-1.0 <  This high version still not in debian :(
          python-pyside.qtcore,
          python-pyside.qtgui
+Recommends: ubertooth-firmware
 Description: Tools for ubertooth
 
 Package: ubertooth-firmware
-Architecture: any
-Depends: libubertooth0 (= ${binary:Version}),
-         ${misc:Depends}
+Architecture: all
+Depends: ${misc:Depends}
 Description: firmware for ubertooth
 
