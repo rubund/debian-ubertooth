@@ -1,3 +1,7 @@
+Description: Also the content of the pyusb package must be changed
+ so that internally ubertooth_pyusb is referenced.
+Author: Ruben Undheim <ruben.undheim@gmail.com>
+
 Index: ubertooth/host/python/usb/ubertooth_pyusb/__init__.py
 ===================================================================
 --- ubertooth.orig/host/python/usb/ubertooth_pyusb/__init__.py	2014-12-09 18:45:35.436417856 +0100
