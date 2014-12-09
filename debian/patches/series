@@ -2,3 +2,4 @@
 02_fixpythoninstall.patch
 03_add_pyusb_1_0.patch
 04_which_pyusb_install_to_use.patch
+05_rename_in_pyusb.patch
