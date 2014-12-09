@@ -8,7 +8,7 @@ Bug-Debian: https://bugs.debian.org/xxx
 Index: ubertooth/host/python/usb/ubertooth_pyusb/ACKNOWLEDGEMENTS
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/ACKNOWLEDGEMENTS	2014-12-09 17:11:26.720454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/ACKNOWLEDGEMENTS	2014-12-09 18:11:47.232430837 +0100
 @@ -0,0 +1,27 @@
 +Alan Aguiar
 +jaseg
@@ -40,7 +40,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/ACKNOWLEDGEMENTS
 Index: ubertooth/host/python/usb/ubertooth_pyusb/LICENSE
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/LICENSE	2014-12-09 17:11:26.720454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/LICENSE	2014-12-09 18:11:47.232430837 +0100
 @@ -0,0 +1,27 @@
 +Copyright (C) 2009-2014 Wander Lairson Costa. All Rights Reserved.
 +
@@ -72,7 +72,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/LICENSE
 Index: ubertooth/host/python/usb/ubertooth_pyusb/README.rst
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/README.rst	2014-12-09 17:11:26.720454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/README.rst	2014-12-09 18:11:47.232430837 +0100
 @@ -0,0 +1,84 @@
 +=======================================
 +PyUSB 1.0 - Easy USB access from Python
@@ -161,7 +161,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/README.rst
 Index: ubertooth/host/python/usb/ubertooth_pyusb/__init__.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/__init__.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/__init__.py	2014-12-09 18:11:47.232430837 +0100
 @@ -0,0 +1,97 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -263,7 +263,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/__init__.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/_debug.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/_debug.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/_debug.py	2014-12-09 18:11:47.232430837 +0100
 @@ -0,0 +1,77 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -345,7 +345,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/_debug.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/_interop.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/_interop.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/_interop.py	2014-12-09 18:11:47.232430837 +0100
 @@ -0,0 +1,141 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -491,7 +491,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/_interop.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/_lookup.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/_lookup.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/_lookup.py	2014-12-09 18:11:47.232430837 +0100
 @@ -0,0 +1,94 @@
 +# Copyright (C) 2009-2014 Walker Inman
 +#
@@ -590,7 +590,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/_lookup.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/backend/__init__.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/backend/__init__.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/backend/__init__.py	2014-12-09 18:11:47.236430837 +0100
 @@ -0,0 +1,376 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -971,7 +971,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/backend/__init__.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/backend/libusb0.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/backend/libusb0.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/backend/libusb0.py	2014-12-09 18:11:47.236430837 +0100
 @@ -0,0 +1,580 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -1556,7 +1556,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/backend/libusb0.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/backend/libusb1.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/backend/libusb1.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/backend/libusb1.py	2014-12-09 18:11:47.236430837 +0100
 @@ -0,0 +1,896 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -2457,7 +2457,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/backend/libusb1.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/backend/openusb.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/backend/openusb.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/backend/openusb.py	2014-12-09 18:11:47.236430837 +0100
 @@ -0,0 +1,746 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -3208,7 +3208,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/backend/openusb.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/control.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/control.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/control.py	2014-12-09 18:11:47.236430837 +0100
 @@ -0,0 +1,253 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -3466,7 +3466,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/control.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/core.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/core.py	2014-12-09 17:11:26.724454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/core.py	2014-12-09 18:11:47.236430837 +0100
 @@ -0,0 +1,1227 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -4698,7 +4698,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/core.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/legacy.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/legacy.py	2014-12-09 17:11:26.728454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/legacy.py	2014-12-09 18:11:47.236430837 +0100
 @@ -0,0 +1,346 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -5049,7 +5049,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/legacy.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/libloader.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/libloader.py	2014-12-09 17:11:26.728454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/libloader.py	2014-12-09 18:11:47.236430837 +0100
 @@ -0,0 +1,190 @@
 +# -*- coding: utf-8 -*-
 +#
@@ -5244,7 +5244,7 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/libloader.py
 Index: ubertooth/host/python/usb/ubertooth_pyusb/util.py
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/ubertooth_pyusb/util.py	2014-12-09 17:11:26.728454010 +0100
++++ ubertooth/host/python/usb/ubertooth_pyusb/util.py	2014-12-09 18:11:47.236430837 +0100
 @@ -0,0 +1,273 @@
 +# Copyright (C) 2009-2014 Wander Lairson Costa
 +#
@@ -5519,11 +5519,34 @@ Index: ubertooth/host/python/usb/ubertooth_pyusb/util.py
 +                langid
 +            )
 +    return buf[2:buf[0]].tostring().decode('utf-16-le')
-Index: ubertooth/host/python/usb/setup.py
+Index: ubertooth/host/python/usb/CMakeLists.txt
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/setup.py	2014-12-09 17:11:26.728454010 +0100
-@@ -0,0 +1,12 @@
++++ ubertooth/host/python/usb/CMakeLists.txt	2014-12-09 18:11:47.236430837 +0100
+@@ -0,0 +1,18 @@
++
++
++set(SETUP_PY_IN ${CMAKE_CURRENT_SOURCE_DIR}/setup.py.in)
++set(SETUP_PY    ${CMAKE_CURRENT_BINARY_DIR}/setup.py)
++set(DEPS        ${CMAKE_CURRENT_SOURCE_DIR}/ubertooth_pyusb/__init__.py
++                ${CMAKE_CURRENT_SOURCE_DIR}/ubertooth_pyusb/core.py)
++set(OUTPUT      ${CMAKE_CURRENT_BINARY_DIR}/build)
++
++configure_file(${SETUP_PY_IN} ${SETUP_PY})
++
++add_custom_command(OUTPUT ${OUTPUT}/timestamp
++                   COMMAND chmod +x ${SETUP_PY}
++                   COMMAND ${PYTHON_EXECUTABLE} ${SETUP_PY} build
++                   COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}/timestamp
++                   DEPENDS ${DEPS})
++
++add_custom_target(target ALL DEPENDS ${OUTPUT}/timestamp)
++install(CODE "execute_process(COMMAND ${PYTHON_EXECUTABLE} ${SETUP_PY} build -b ${OUTPUT} install --root=${CMAKE_SOURCE_DIR}/../debian/tmp --install-layout=deb)")
+Index: ubertooth/host/python/usb/setup.py.in
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ ubertooth/host/python/usb/setup.py.in	2014-12-09 18:12:15.728430655 +0100
+@@ -0,0 +1,13 @@
 +#!/usr/bin/env python
 +
 +from distutils.core import setup
@@ -5534,13 +5557,6 @@ Index: ubertooth/host/python/usb/setup.py
 +      author='pyusb team',
 +      author_email='pyusb-team@email.com',
 +      url='https://www.python.org/sigs/distutils-sig/',
++      package_dir = { '': '${CMAKE_CURRENT_SOURCE_DIR}' },
 +      packages=['ubertooth_pyusb'],
 +     )
-Index: ubertooth/host/python/usb/CMakeLists.txt
-===================================================================
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ ubertooth/host/python/usb/CMakeLists.txt	2014-12-09 17:14:39.500452776 +0100
-@@ -0,0 +1,3 @@
-+
-+
-+install(CODE "execute_process(COMMAND python setup.py build -b build install --root=${CMAKE_SOURCE_DIR}/../debian/tmp --install-layout=deb)")
