@@ -25,6 +25,7 @@ override_dh_auto_build:
 	dh_auto_build --sourcedirectory=firmware
 
 override_dh_auto_install:
+	for dir in `ls firmware` ; do chmod a-x firmware/$${dir}/*.bin ; done
 	dh_auto_install --sourcedirectory=host
 	dh_auto_install --sourcedirectory=firmware
 
