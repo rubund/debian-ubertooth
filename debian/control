@@ -22,7 +22,13 @@ Section: libs
 Depends: ${shlibs:Depends},
          ${misc:Depends}
 Pre-Depends: ${misc:Pre-Depends}
-Description: Shared library for ubertooth
+Description: Shared library for Bluetooth experimentation
+ Project Ubertooth is an open source wireless development platform suitable for
+ Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)
+ sniffer and can sniff some data from Basic Rate (BR) Bluetooth Classic
+ connections.
+ .
+ This package provides the shared library needed by Ubertooth.
 
 Package: libubertooth-dev
 Architecture: any
@@ -33,7 +39,13 @@ Depends: libubertooth0 (= ${binary:Version}),
          libbluetooth-dev,
          libbtbb-dev,
          ${misc:Depends}
-Description: Development files for libubertooth0
+Description: Shared library for Bluetooth experimentation - development files
+ Project Ubertooth is an open source wireless development platform suitable for
+ Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)
+ sniffer and can sniff some data from Basic Rate (BR) Bluetooth Classic
+ connections.
+ .
+ This package provides the development files for using the ubertooth library.
 
 Package: libubertooth0-dbg
 Architecture: any
@@ -41,7 +53,14 @@ Section: debug
 Priority: extra
 Depends: libubertooth0 (= ${binary:Version}),
          ${misc:Depends}
-Description: debug symbols for libubertooth0
+Description: Shared library for Bluetooth experimentation - debugging symbols
+ Project Ubertooth is an open source wireless development platform suitable for
+ Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)
+ sniffer and can sniff some data from Basic Rate (BR) Bluetooth Classic
+ connections.
+ .
+ This package contains the debugging files used to investigate problems with
+ the ubertooth library.
 
 Package: ubertooth
 Architecture: any
@@ -54,10 +73,19 @@ Depends: libubertooth0 (= ${binary:Version}),
          python-pyside.qtcore,
          python-pyside.qtgui
 Recommends: ubertooth-firmware
-Description: Tools for ubertooth
+Description: 2.4 GHz wireless development platform for Bluetooth experimentation
+ Project Ubertooth is an open source wireless development platform suitable for
+ Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)
+ sniffer and can sniff some data from Basic Rate (BR) Bluetooth Classic
+ connections.
 
 Package: ubertooth-firmware
 Architecture: all
 Depends: ${misc:Depends}
-Description: firmware for ubertooth
-
+Description: Firmware for Ubertooth
+ The Ubertooth hardware needs some firmware to run. The firmware is built with
+ arm-none-eabi-gcc. This package contains a number of firmware images that
+ may be programmed into the Ubertooth hardware using the 'ubertooth-dfu'
+ command.
+ .
+ The firmware images are installed in /usr/share/ubertooth/firmware/
