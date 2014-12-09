@@ -48,6 +48,7 @@ Architecture: any
 Depends: libubertooth0 (= ${binary:Version}),
          ${shlibs:Depends},
          ${misc:Depends},
+         python,
          python-numpy,
 #        pyusb-1.0 <  This high version still not in debian :(
          python-pyside.qtcore,
