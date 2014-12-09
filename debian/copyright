@@ -108,7 +108,7 @@ License: GPL-2+
 
 Files: host/ubertooth-tools/getopt/getopt.c host/ubertooth-tools/getopt/getopt.h
 Copyright: 1987,88,89,90,91,92,93,94,95,96,98,99,2000,2001 Free Software Foundation, Inc.
-License: LGPL-2.1
+License: LGPL-2.1+
 
 Files: debian/*
 Copyright: 2014 Ruben Undheim <ruben.undheim@gmail.com>
@@ -157,7 +157,7 @@ License: GPL-3+
  Public License version 3 can be found in "/usr/share/common-licenses/GPL-3".
 
 
-License: LGPL-2.1
+License: LGPL-2.1+
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
  License as published by the Free Software Foundation; either
