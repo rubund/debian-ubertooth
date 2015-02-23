@@ -1,5 +1,5 @@
-ubertooth (2014.11.30+git241874e-1) experimental; urgency=low
+ubertooth (2014.04.R1+20150223git977da40-1) experimental; urgency=low
 
   * Initial release (Closes: #772509)
 
- -- Ruben Undheim <ruben.undheim@gmail.com>  Thu, 08 Jan 2015 22:37:55 +0100
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Mon, 23 Feb 2015 21:50:42 +0100
