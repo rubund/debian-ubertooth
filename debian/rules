@@ -13,6 +13,8 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 	dh $@
 
 override_dh_auto_clean:
+	$(RM) -f host/python/usb_dfu/dfu/__init__.pyc
+	$(RM) -f host/python/usb_dfu/dfu/dfu.pyc
 	dh_auto_clean --sourcedirectory=host
 	dh_auto_clean --sourcedirectory=firmware
 
