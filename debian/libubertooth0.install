@@ -1,2 +1,2 @@
 usr/lib/*/lib*.so.*
-host/misc/udev/40-ubertooth.rules lib/udev/rules.d/
+lib/udev/rules.d/40-ubertooth.rules
