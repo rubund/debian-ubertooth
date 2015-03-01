@@ -14,7 +14,7 @@ OPTIONS
   -d[0-1]       get/set all LEDs
   -e            start repeater mode
   -f            activate flash programming (DFU) mode
-  -h            display this message
+  -h            display help message
   -i            activate In-System Programming (ISP) mode
   -I            identify ubertooth device by flashing all LEDs
   -l[0-1]       get/set USR LED
