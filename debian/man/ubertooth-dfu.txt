@@ -1,0 +1,21 @@
+NAME
+  ubertooth-dfu - write firmware to device
+
+SYNOPSIS
+  ubertooth-dfu <command> <arguments>
+
+DESCRIPTION
+
+
+OPTIONS
+
+  --write <application firmware filename>   Write a file to application flash region
+  --read <filename>  Read data from application flash region and write to a file
+  --sign <binary firmware filename>  Add DFU signature to firmware file
+  --detach  Detach the bootloader and execute the application firmware
+
+AUTHOR
+  This manual page was written by Ruben Undheim <ruben.undheim@gmail.com> for the Debian project (and may be used by others).
+
+
+
