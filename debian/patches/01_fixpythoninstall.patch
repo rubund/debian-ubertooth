@@ -14,16 +14,3 @@ Index: ubertooth/host/python/specan_ui/CMakeLists.txt
  
  add_custom_target(ubertooth-specan-ui ALL DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ubertooth-specan-ui)
  install(PROGRAMS ubertooth-specan-ui DESTINATION ${INSTALL_DEFAULT_BINDIR})
-Index: ubertooth/host/python/usb_dfu/CMakeLists.txt
-===================================================================
---- ubertooth.orig/host/python/usb_dfu/CMakeLists.txt	2014-12-08 00:04:52.891963402 +0100
-+++ ubertooth/host/python/usb_dfu/CMakeLists.txt	2014-12-08 21:36:21.449571157 +0100
-@@ -31,7 +31,7 @@
-                    DEPENDS ${DEPS})
- 
- add_custom_target(dfu ALL DEPENDS ${OUTPUT}/timestamp)
--install(CODE "execute_process(COMMAND ${PYTHON_EXECUTABLE} ${SETUP_PY} build -b ${OUTPUT} install)")
-+install(CODE "execute_process(COMMAND ${PYTHON_EXECUTABLE} ${SETUP_PY} build -b ${OUTPUT} install --root=${CMAKE_SOURCE_DIR}/../debian/tmp --install-layout=deb)")
- 
- add_custom_target(ubertooth-dfu ALL DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ubertooth-dfu)
- install(PROGRAMS ubertooth-dfu DESTINATION ${INSTALL_DEFAULT_BINDIR})
