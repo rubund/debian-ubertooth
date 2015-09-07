@@ -1,7 +1,7 @@
 /*
- * Copyright 2014 Dominic Spill
+ * Copyright 2015 Mike Ryan
  *
- * This file is part of Ubertooth.
+ * This file is part of Project Ubertooth.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,5 +19,17 @@
  * Boston, MA 02110-1301, USA.
  */
 
-extern const char btbb_version[];
-extern const char btbb_release[];
+#ifndef __EGO_H
+#define __EGO_H
+
+#include "ubertooth.h"
+
+typedef enum _ego_mode_t {
+	EGO_FOLLOW = 0,
+	EGO_CONTINUOUS_RX,
+	EGO_JAM,
+} ego_mode_t;
+
+void ego_main(ego_mode_t mode);
+
+#endif /* __EGO_H */

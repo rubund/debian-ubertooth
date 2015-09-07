@@ -115,7 +115,7 @@ LINKER_SCRIPT ?= LPC17xx_Linker_Script_with_bootloader.ld
 #     Each directory must be seperated by a space.
 #     Use forward slashes for directory separators.
 #     For a directory that has spaces, enclose it in quotes.
-EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/bluetooth_rxtx/ ../../host/libubertooth/src/
+EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src
 
 # Compiler flag to set the C Standard level.
 #     c89   = "ANSI" C
@@ -134,15 +134,15 @@ ADEFS =
 CPPDEFS = -D$(BOARD) -D$(LPCUSB_TARGET) $(COMPILE_OPTS)
 
 #---------------- Compiler Options C ----------------
-#  -g*:          generate debugging information
+#  -g:          generate debugging information
 #  -O*:          optimization level
 #  -f...:        tuning, see GCC manual
 #  -Wall...:     warning level
 #  -Wa,...:      tell GCC to pass this to the assembler.
 #    -alhms...: create assembler listing
-CFLAGS = -g$(DEBUG)
+CFLAGS = -g
 CFLAGS += $(CDEFS)
-CFLAGS += -O$(OPT)
+#CFLAGS += -O$(OPT)
 CFLAGS += -Wall
 CFLAGS += -Wno-unused
 CFLAGS += -Wno-comments
@@ -233,7 +233,7 @@ LDFLAGS += $(patsubst %,-L%,$(EXTRALIBDIRS))
 LDFLAGS += -static
 LDFLAGS += -Wl,--start-group 
 #LDFLAGS += -L$(THUMB2GNULIB) -L$(THUMB2GNULIB2)
-LDFLAGS += -lc -lg -lstdc++ -lsupc++ 
+LDFLAGS += -lc -lg
 LDFLAGS += -lgcc -lm 
 LDFLAGS += -Wl,--end-group 
 
@@ -257,10 +257,10 @@ NM = $(CROSS_COMPILE)nm
 REMOVE = rm -f
 
 # 
-ifeq ($(strip $(`which ubertooth-dfu`)),)
-  DFU_TOOL ?= ../../host/python/usb_dfu/ubertooth-dfu
+ifeq ($(strip $(shell which ubertooth-dfu)),)
+  $(error ubertooth-dfu not found!)
 else
-  DFU_TOOL ?= `which ubertooth-dfu`
+  DFU_TOOL ?= $(shell which ubertooth-dfu)
 endif
 
 # Define Messages
@@ -388,7 +388,7 @@ program: $(TARGET).hex
 %.dfu: %.bin
 	@echo
 	@echo $(MSG_DFU) $@
-	$(DFU_TOOL) --sign $(TARGET).bin
+	$(DFU_TOOL) -s $(TARGET).bin
 
 # Create library from object files.
 .SECONDARY : $(TARGET).a
@@ -483,3 +483,5 @@ $(shell mkdir $(OBJDIR)/ 2>/dev/null)
 .PHONY : all showtarget begin end sizebefore sizeafter \
 gccversion build elf hex eep lss sym program clean \
 clean_list clean_binary doxygen
+
+include ../ctags.mk

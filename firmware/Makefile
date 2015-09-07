@@ -19,16 +19,26 @@
 # the Free Software Foundation, Inc., 51 Franklin Street,
 # Boston, MA 02110-1301, USA.
 
-DIRS = blinky bluetooth_rxtx cc2400_test clock_test usb_test bootloader assembly_test
+DIRS = blinky bluetooth_rxtx cc2400_test clock_test usb_test assembly_test
 
 all: $(DIRS)
 
 clean: $(DIRS:%=%_clean)
+
+ctags: $(DIRS:%=%_ctags)
+
+ctags_clean: $(DIRS:%=%_ctags_clean)
 
 $(DIRS):
 	$(MAKE) -C $@
 
 $(DIRS:%=%_clean):
 	$(MAKE) -C $(@:%_clean=%) clean
+
+$(DIRS:%=%_ctags):
+	@$(MAKE) --no-print-directory -C $(@:%_ctags=%) ctags
+
+$(DIRS:%=%_ctags_clean):
+	@$(MAKE) -C $(@:%_ctags_clean=%) ctags_clean
 
 .PHONY : clean all $(DIRS)

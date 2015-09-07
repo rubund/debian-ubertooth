@@ -28,10 +28,14 @@
 /* Mark unused variables to avoid gcc/clang warnings */
 #define UNUSED(x) (void)(x)
 
-/* gnuplot output types
+/* specan output types
  * see https://github.com/dkogan/feedgnuplot for plotter */
-#define GNUPLOT_NORMAL		1
-#define GNUPLOT_3D		2
+enum specan_modes {
+	SPECAN_STDOUT         = 0,
+	SPECAN_GNUPLOT_NORMAL = 1,
+	SPECAN_GNUPLOT_3D     = 2,
+	SPECAN_FILE           = 3
+};
 
 enum board_ids {
 	BOARD_ID_UBERTOOTH_ZERO = 0,
@@ -46,24 +50,24 @@ typedef struct {
 } btle_options;
 
 void print_version();
+void register_cleanup_handler(struct libusb_device_handle *devh);
 struct libusb_device_handle* ubertooth_start(int ubertooth_device);
 void ubertooth_stop(struct libusb_device_handle *devh);
-int specan(struct libusb_device_handle* devh, int xfer_size, u16 num_blocks,
-	u16 low_freq, u16 high_freq);
-int do_specan(struct libusb_device_handle* devh, int xfer_size, u16 num_blocks,
-	u16 low_freq, u16 high_freq, char gnuplot);
+int specan(struct libusb_device_handle* devh, int xfer_size, u16 low_freq,
+		   u16 high_freq, u8 output_mode);
 int cmd_ping(struct libusb_device_handle* devh);
 int stream_rx_usb(struct libusb_device_handle* devh, int xfer_size,
-	uint16_t num_blocks, rx_callback cb, void* cb_args);
-int stream_rx_file(FILE* fp, uint16_t num_blocks, rx_callback cb, void* cb_args);
+				  rx_callback cb, void* cb_args);
+int stream_rx_file(FILE* fp, rx_callback cb, void* cb_args);
 void rx_live(struct libusb_device_handle* devh, btbb_piconet* pn, int timeout);
 void rx_file(FILE* fp, btbb_piconet* pn);
 void rx_dump(struct libusb_device_handle* devh, int full);
 void rx_btle(struct libusb_device_handle* devh);
 void rx_btle_file(FILE* fp);
 void cb_btle(void* args, usb_pkt_rx *rx, int bank);
+void cb_ego(void* args, usb_pkt_rx *rx, int bank);
 
-#if defined(USE_PCAP)
+#ifdef ENABLE_PCAP
 extern btbb_pcap_handle * h_pcap_bredr;
 extern lell_pcap_handle * h_pcap_le;
 #endif

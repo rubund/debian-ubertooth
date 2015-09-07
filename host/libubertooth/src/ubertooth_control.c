@@ -67,11 +67,11 @@ int cmd_ping(struct libusb_device_handle* devh)
 	return 0;
 }
 
-int cmd_rx_syms(struct libusb_device_handle* devh, u16 num)
+int cmd_rx_syms(struct libusb_device_handle* devh)
 {
 	int r;
 
-	r = libusb_control_transfer(devh, CTRL_OUT, UBERTOOTH_RX_SYMBOLS, num, 0,
+	r = libusb_control_transfer(devh, CTRL_OUT, UBERTOOTH_RX_SYMBOLS, 0, 0,
 			NULL, 0, 1000);
 	if (r < 0) {
 		show_libusb_error(r);
@@ -534,7 +534,6 @@ void cmd_get_rev_num(struct libusb_device_handle* devh, char *version, u8 len)
 void cmd_get_compile_info(struct libusb_device_handle* devh, char *compile_info, u8 len)
 {
 	u8 result[1 + 255];
-	u16 result_ver;
 	int r;
 	r = libusb_control_transfer(devh, CTRL_IN, UBERTOOTH_GET_COMPILE_INFO, 0, 0,
 			result, sizeof(result), 1000);
@@ -913,5 +912,39 @@ int cmd_btle_set_target(struct libusb_device_handle* devh, u8 *mac_address)
 		return r;
 	}
 
+	return 0;
+}
+
+int cmd_set_jam_mode(struct libusb_device_handle* devh, int mode) {
+	int r;
+
+	r = libusb_control_transfer(devh, CTRL_OUT, UBERTOOTH_JAM_MODE, mode, 0,
+			NULL, 0, 1000);
+	if (r < 0) {
+		if (r == LIBUSB_ERROR_PIPE) {
+			fprintf(stderr, "control message unsupported\n");
+		} else {
+			show_libusb_error(r);
+		}
+		return r;
+	}
+
+	return 0;
+}
+
+int cmd_ego(struct libusb_device_handle* devh, int mode)
+{
+	int r;
+
+	r = libusb_control_transfer(devh, CTRL_OUT, UBERTOOTH_EGO, mode, 0,
+			NULL, 0, 1000);
+	if (r < 0) {
+		if (r == LIBUSB_ERROR_PIPE) {
+			fprintf(stderr, "control message unsupported\n");
+		} else {
+			show_libusb_error(r);
+		}
+		return r;
+	}
 	return 0;
 }

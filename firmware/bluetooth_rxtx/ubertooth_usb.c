@@ -103,7 +103,7 @@ const u8 abDescriptors[] = {
 	0x01,  					// bConfigurationValue
 	0x00,  					// iConfiguration
 	0x80,  					// bmAttributes
-	0x32,  					// bMaxPower
+	0x6e,  					// bMaxPower (220mA)
 
 // interface
 	0x09,   				
@@ -138,13 +138,14 @@ const u8 abDescriptors[] = {
 	LE_WORD(0x0409),
 
 	// manufacturer string
-	0x44,
+	0x5C,
 	DESC_STRING,
-	'h', 0, 't', 0, 't', 0, 'p', 0, ':', 0, '/', 0, '/', 0, 'u', 0,
-	'b', 0, 'e', 0, 'r', 0, 't', 0, 'o', 0, 'o', 0, 't', 0, 'h', 0,
-	'.', 0, 's', 0, 'o', 0, 'u', 0, 'r', 0, 'c', 0, 'e', 0, 'f', 0,
-	'o', 0, 'r', 0, 'g', 0, 'e', 0, '.', 0, 'n', 0, 'e', 0, 't', 0,
-	'/', 0,
+	'h', 0, 't', 0, 't', 0, 'p', 0, ':', 0, '/', 0, '/', 0, 'g', 0,
+	'i', 0, 't', 0, 'h', 0, 'u', 0, 'b', 0, '.', 0, 'c', 0, 'o', 0,
+	'm', 0, '/', 0, 'g', 0, 'r', 0, 'e', 0, 'a', 0, 't', 0, 's', 0,
+	'c', 0, 'o', 0, 't', 0, 't', 0, 'g', 0, 'a', 0, 'd', 0, 'g', 0,
+	'e', 0, 't', 0, 's', 0, '/', 0, 'u', 0, 'b', 0, 'e', 0, 'r', 0,
+	't', 0, 'o', 0, 'o', 0, 't', 0, 'h', 0,
 
 	// product string
 	0x1E,
@@ -250,7 +251,6 @@ usb_pkt_rx *dequeue()
 
 	/* fail if queue is empty */
 	if (h == t) {
-		USRLED_CLR;
 		return NULL;
 	}
 

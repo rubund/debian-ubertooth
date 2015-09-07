@@ -75,7 +75,7 @@
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 void show_libusb_error(int error_code);
-int cmd_rx_syms(struct libusb_device_handle* devh, u16 num);
+int cmd_rx_syms(struct libusb_device_handle* devh);
 int cmd_specan(struct libusb_device_handle* devh, u16 low_freq, u16 high_freq);
 int cmd_led_specan(struct libusb_device_handle* devh, u16 rssi_threshold);
 int cmd_set_usrled(struct libusb_device_handle* devh, u16 state);
@@ -128,5 +128,7 @@ int cmd_btle_promisc(struct libusb_device_handle* devh);
 int cmd_read_register(struct libusb_device_handle* devh, u8 reg);
 int cmd_btle_slave(struct libusb_device_handle* devh, u8 *mac_address);
 int cmd_btle_set_target(struct libusb_device_handle* devh, u8 *mac_address);
+int cmd_set_jam_mode(struct libusb_device_handle* devh, int mode);
+int cmd_ego(struct libusb_device_handle* devh, int mode);
 
 #endif /* __UBERTOOTH_CONTROL_H__ */

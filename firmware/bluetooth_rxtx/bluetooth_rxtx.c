@@ -28,6 +28,7 @@
 #include "bluetooth.h"
 #include "bluetooth_le.h"
 #include "cc2400_rangetest.h"
+#include "ego.h"
 
 #define MIN(x,y)	((x)<(y)?(x):(y))
 #define MAX(x,y)	((x)>(y)?(x):(y))
@@ -68,12 +69,12 @@ volatile u8 keepalive_trigger;              // set by timer 1/s
 volatile u32 cs_timestamp;                  // CLK100NS at time of cs_trigger
 u16 hop_direct_channel = 0;                 // for hopping directly to a channel
 int clock_trim = 0;                         // to counteract clock drift
-u32 idle_buf_clkn_high;
-u32 active_buf_clkn_high;
-u32 idle_buf_clk100ns;
-u32 active_buf_clk100ns;
-u16 idle_buf_channel = 0;
-u16 active_buf_channel = 0;
+volatile u32 idle_buf_clkn_high;
+volatile u32 active_buf_clkn_high;
+volatile u32 idle_buf_clk100ns;
+volatile u32 active_buf_clk100ns;
+volatile u16 idle_buf_channel = 0;
+volatile u16 active_buf_channel = 0;
 u8 slave_mac_address[6] = { 0, };
 
 /* DMA buffers */
@@ -101,6 +102,26 @@ le_state_t le = {
 	.last_packet = 0,
 };
 
+typedef struct _le_promisc_active_aa_t {
+	u32 aa;
+	int count;
+} le_promisc_active_aa_t;
+
+typedef struct _le_promisc_state_t {
+	// LFU cache of recently seen AA's
+	le_promisc_active_aa_t active_aa[32];
+
+	// recovering hop interval
+	u32 smallest_hop_interval;
+	int consec_intervals;
+} le_promisc_state_t;
+le_promisc_state_t le_promisc;
+#define AA_LIST_SIZE (int)(sizeof(le_promisc.active_aa) / sizeof(le_promisc_active_aa_t))
+
+/* LE jamming */
+#define JAM_COUNT_DEFAULT 40
+int le_jam_count = 0;
+
 /* set LE access address */
 static void le_set_access_address(u32 aa);
 
@@ -126,6 +147,8 @@ char unpacked[DMA_SIZE*8*2];
 
 volatile u8 mode = MODE_IDLE;
 volatile u8 requested_mode = MODE_IDLE;
+volatile u8 jam_mode = JAM_NONE;
+volatile u8 ego_mode = 0;
 volatile u8 modulation = MOD_BT_BASIC_RATE;
 volatile u16 channel = 2441;
 volatile u16 requested_channel = 0;
@@ -150,9 +173,6 @@ dma_lli le_dma_lli[11]; // 11 x 4 bytes
 /* rx terminal count and error interrupt counters */
 volatile u32 rx_tc;
 volatile u32 rx_err;
-
-/* number of rx USB packets to send */
-volatile u32 rx_pkts = 0;
 
 /* status information byte */
 volatile u8 status = 0;
@@ -238,8 +258,13 @@ static int enqueue(u8 type, u8 *buf)
 	}
 
 	f->pkt_type = type;
-	f->clkn_high = idle_buf_clkn_high;
-	f->clk100ns = idle_buf_clk100ns;
+	if(type == SPECAN) {
+		f->clkn_high = (clkn >> 20) & 0xff;
+		f->clk100ns = CLK100NS;
+	} else {
+		f->clkn_high = idle_buf_clkn_high;
+		f->clk100ns = idle_buf_clk100ns;
+	}
 	f->channel = idle_buf_channel - 2402;
 	f->rssi_min = rssi_min;
 	f->rssi_max = rssi_max;
@@ -248,6 +273,51 @@ static int enqueue(u8 type, u8 *buf)
 	else
 		f->rssi_avg = (int8_t)((rssi_iir[0] + 128)/256);
 	f->rssi_count = rssi_count;
+
+	USRLED_SET;
+
+	// Unrolled copy of 50 bytes from buf to fifo
+	u32 *p1 = (u32 *)f->data;
+	u32 *p2 = (u32 *)buf;
+	p1[0] = p2[0];
+	p1[1] = p2[1];
+	p1[2] = p2[2];
+	p1[3] = p2[3];
+	p1[4] = p2[4];
+	p1[5] = p2[5];
+	p1[6] = p2[6];
+	p1[7] = p2[7];
+	p1[8] = p2[8];
+	p1[9] = p2[9];
+	p1[10] = p2[10];
+	p1[11] = p2[11];
+	/* Avoid gcc warning about strict-aliasing */
+	u16 *p3 = (u16 *)f->data;
+	u16 *p4 = (u16 *)buf;
+	p3[24] = p4[24];
+
+	f->status = status;
+	status = 0;
+
+	return 1;
+}
+
+int enqueue_with_ts(u8 type, u8 *buf, u32 ts)
+{
+	usb_pkt_rx *f = usb_enqueue();
+
+	/* fail if queue is full */
+	if (f == NULL) {
+		status |= FIFO_OVERFLOW;
+		return 0;
+	}
+
+	f->clkn_high = 0;
+	f->clk100ns = ts;
+
+	f->channel = channel - 2402;
+	f->rssi_avg = 0;
+	f->rssi_count = 0;
 
 	USRLED_SET;
 
@@ -335,9 +405,6 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 
 	case UBERTOOTH_RX_SYMBOLS:
 		requested_mode = MODE_RX_SYMBOLS;
-		rx_pkts += request_params[0];
-		if (rx_pkts == 0)
-			rx_pkts = 0xFFFFFFFF;
 		*data_len = 0;
 		break;
 
@@ -605,7 +672,6 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		for(i=0; i < 8; i++) {
 			target.access_code |= (uint64_t)data[i+8] << 8*i;
 		}
-		precalc();
 		break;
 
 	case UBERTOOTH_START_HOPPING:
@@ -631,7 +697,6 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		}
 		afh_enabled = 1;
 		*data_len = 10;
-		precalc();
 		break;
 
 	case UBERTOOTH_CLEAR_AFHMAP:
@@ -640,7 +705,6 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		}
 		afh_enabled = 0;
 		*data_len = 10;
-		precalc();
 		break;
 
 	case UBERTOOTH_GET_CLOCK:
@@ -652,9 +716,6 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		break;
 
 	case UBERTOOTH_BTLE_SNIFFING:
-		rx_pkts += request_params[0];
-		if (rx_pkts == 0)
-			rx_pkts = 0xFFFFFFFF;
 		*data_len = 0;
 
 		do_hop = 0;
@@ -726,6 +787,10 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		*data_len = 2;
 		break;
 
+	case UBERTOOTH_WRITE_REGISTER:
+		cc2400_set(request_params[0] & 0xff, request_params[1]);
+		break;
+
 	case UBERTOOTH_BTLE_SLAVE:
 		memcpy(slave_mac_address, data, 6);
 		requested_mode = MODE_BT_SLAVE_LE;
@@ -741,6 +806,21 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		le.target[4] = data[1];
 		le.target[5] = data[0];
 		le.target_set = 1;
+		break;
+
+#ifdef TX_ENABLE
+	case UBERTOOTH_JAM_MODE:
+		jam_mode = request_params[0];
+		break;
+#endif
+
+	case UBERTOOTH_EGO:
+#ifndef TX_ENABLE
+		if (ego_mode == EGO_JAM)
+			return 0;
+#endif
+		requested_mode = MODE_EGO;
+		ego_mode = request_params[0];
 		break;
 
 	default:
@@ -1293,6 +1373,36 @@ void le_transmit(u32 aa, u8 len, u8 *data)
 	cc2400_set(IOCFG, gio_save);
 }
 
+void le_jam(void) {
+#ifdef TX_ENABLE
+	cc2400_set(MANAND,  0x7fff);
+	cc2400_set(LMTST,   0x2b22);    // LNA and receive mixers test register
+	cc2400_set(MDMTST0, 0x234b);    // PRNG, 1 MHz offset
+
+	cc2400_set(GRMDM,   0x0c01);
+	// 0 00 01 1 000 00 0 00 0 1
+	//      |  | |   |  +--------> CRC off
+	//      |  | |   +-----------> sync word: 8 MSB bits of SYNC_WORD
+	//      |  | +---------------> 0 preamble bytes of 01010101
+	//      |  +-----------------> packet mode
+	//      +--------------------> buffered mode
+
+	// cc2400_set(FSDIV,   channel);
+	cc2400_set(FREND,   0b1011);    // amplifier level (-7 dBm, picked from hat)
+	cc2400_set(MDMCTRL, 0x0040);    // 250 kHz frequency deviation
+
+	while (!(cc2400_status() & XOSC16M_STABLE));
+	cc2400_strobe(SFSON);
+	while (!(cc2400_status() & FS_LOCK));
+	TXLED_SET;
+#ifdef UBERTOOTH_ONE
+	PAEN_SET;
+#endif
+	while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
+	cc2400_strobe(STX);
+#endif
+}
+
 /* TODO - return whether hop happened, or should caller have to keep
  * track of this? */
 void hop(void)
@@ -1355,23 +1465,28 @@ void bt_stream_rx()
 	u8 hold;
 	int8_t rssi;
 	int i;
+	int16_t packet_offset;
 	int8_t rssi_at_trigger;
-
-	mode = MODE_RX_SYMBOLS;
-
+	
 	RXLED_CLR;
 
 	queue_init();
 	dio_ssp_init();
 	dma_init();
 	dio_ssp_start();
-	cc2400_rx();
-
+	
+	if(mode == MODE_BT_FOLLOW) {
+		precalc();
+		cc2400_rx_sync((syncword >> 32) & 0xffffffff);
+	} else {
+		cc2400_rx();
+	}
 	cs_trigger_enable();
 
 	hold = 0;
 
-	while (rx_pkts && (requested_mode == MODE_RX_SYMBOLS)) {
+	while ((requested_mode == MODE_RX_SYMBOLS) ||
+		   (requested_mode == MODE_BT_FOLLOW)) {
 
 		/* If timer says time to hop, do it. TODO - set
 		 * per-channel carrier sense threshold. Set by
@@ -1452,154 +1567,23 @@ void bt_stream_rx()
 			goto rx_continue;
 		}
 		hold--;
-
+		
 		/* Queue data from DMA buffer. */
 		switch (hop_mode) {
 			case HOP_BLUETOOTH:
-				//if (find_access_code(idle_rxbuf) >= 0)
+				//if ((packet_offset = find_access_code(idle_rxbuf)) >= 0) {
+				//		clock_trim = 20 - packet_offset;
 						if (enqueue(BR_PACKET, idle_rxbuf)) {
 								RXLED_SET;
-								--rx_pkts;
 						}
+				//}
 				break;
-
 			default:
 				if (enqueue(BR_PACKET, idle_rxbuf)) {
 						RXLED_SET;
-						--rx_pkts;
 				}
+				break;
 		}
-
-	rx_continue:
-		handle_usb(clkn);
-		rx_tc = 0;
-		rx_err = 0;
-	}
-
-	/* This call is a nop so far. Since bt_rx_stream() starts the
-	 * stream, it makes sense that it would stop it. TODO - how
-	 * should setup/teardown be handled? Should every new mode be
-	 * starting from scratch? */
-	dio_ssp_stop();
-	cs_trigger_disable();
-	rx_pkts = 0; // Already 0, or requested mode changed
-}
-
-
-/* Bluetooth packet monitoring */
-void bt_follow()
-{
-	u8 *tmp = NULL;
-	u8 hold;
-	int8_t rssi;
-	int i;
-	int16_t packet_offset;
-	int8_t rssi_at_trigger;
-
-	mode = MODE_BT_FOLLOW;
-
-	RXLED_CLR;
-
-	queue_init();
-	dio_ssp_init();
-	dma_init();
-	dio_ssp_start();
-	cc2400_rx_sync((syncword >> 32) & 0xffffffff);
-
-	cs_trigger_enable();
-
-	hold = 0;
-
-	while (requested_mode == MODE_BT_FOLLOW) {
-
-		/* If timer says time to hop, do it. TODO - set
-		 * per-channel carrier sense threshold. Set by
-		 * firmware or host. TODO - if hop happened, clear
-		 * hold. */
-		if (do_hop)
-			hop();
-
-		RXLED_CLR;
-
-		/* Wait for DMA transfer. TODO - need more work on
-		 * RSSI. Should send RSSI indications to host even
-		 * when not transferring data. That would also keep
-		 * the USB stream going. This loop runs 50-80 times
-		 * while waiting for DMA, but RSSI sampling does not
-		 * cover all the symbols in a DMA transfer. Can not do
-		 * RSSI sampling in CS interrupt, but could log time
-		 * at multiple trigger points there. The MAX() below
-		 * helps with statistics in the case that cs_trigger
-		 * happened before the loop started. */
-		rssi_reset();
-		rssi_at_trigger = INT8_MIN;
-		while ((rx_tc == 0) && (rx_err == 0)) {
-			rssi = (int8_t)(cc2400_get(RSSI) >> 8);
-			if (cs_trigger && (rssi_at_trigger == INT8_MIN)) {
-				rssi = MAX(rssi,(cs_threshold_cur+54));
-				rssi_at_trigger = rssi;
-			}
-			rssi_add(rssi);
-		}
-
-		/* Keep buffer swapping in sync with DMA. */
-		if (rx_tc % 2) {
-			tmp = active_rxbuf;
-			active_rxbuf = idle_rxbuf;
-			idle_rxbuf = tmp;
-		}
-
-		if (rx_err) {
-			status |= DMA_ERROR;
-		}
-
-		/* No DMA transfer? */
-		if (!rx_tc)
-			goto rx_continue;
-
-		/* Missed a DMA trasfer? */
-		if (rx_tc > 1)
-			status |= DMA_OVERFLOW;
-
-		rssi_iir_update();
-
-		/* Set squelch hold if there was either a CS trigger, squelch
-		 * is disabled, or if the current rssi_max is above the same
-		 * threshold. Currently, this is redundant, but allows for
-		 * per-channel or other rssi triggers in the future. */
-		if (cs_trigger || cs_no_squelch) {
-			status |= CS_TRIGGER;
-			hold = CS_HOLD_TIME;
-			cs_trigger = 0;
-		}
-
-		if (rssi_max >= (cs_threshold_cur + 54)) {
-			status |= RSSI_TRIGGER;
-			hold = CS_HOLD_TIME;
-		}
-
-		/* Send a packet once in a while (6.25 Hz) to keep
-		 * host USB reads from timing out. */
-		if (keepalive_trigger) {
-			if (hold == 0)
-				hold = 1;
-			keepalive_trigger = 0;
-		}
-
-		/* Hold expired? Ignore data. */
-		if (hold == 0) {
-			goto rx_continue;
-		}
-		hold--;
-
-		/* Queue data from DMA buffer. */
-		//if ((packet_offset = find_access_code(idle_rxbuf)) >= 0) {
-		//	clock_trim = 20 - packet_offset;
-			if (enqueue(BR_PACKET, idle_rxbuf)) {
-				RXLED_SET;
-				--rx_pkts;
-			}
-		//}
 
 	rx_continue:
 		handle_usb(clkn);
@@ -1654,6 +1638,12 @@ void reset_le() {
 	le.win_offset_update;
 
 	do_hop = 0;
+}
+
+// reset LE Promisc state
+void reset_le_promisc(void) {
+	memset(&le_promisc, 0, sizeof(le_promisc));
+	le_promisc.smallest_hop_interval = 0xffffffff;
 }
 
 /* generic le mode */
@@ -1807,6 +1797,7 @@ void bt_le_sync(u8 active_mode)
 {
 	int i;
 	int8_t rssi;
+	static int restart_jamming = 0;
 
 	modulation = MOD_BT_LOW_ENERGY;
 	mode = active_mode;
@@ -1933,10 +1924,30 @@ void bt_le_sync(u8 active_mode)
 		}
 
 		// timeout - FIXME this is an ugly hack
-		if ((le.link_state == LINK_CONNECTED || le.link_state == LINK_CONN_PENDING)
-			&& (CLK100NS - le.last_packet > 50000000))
+		u32 now = CLK100NS;
+		if (now < le.last_packet)
+			now += 3276800000; // handle rollover
+		if  ( // timeout
+			((le.link_state == LINK_CONNECTED || le.link_state == LINK_CONN_PENDING)
+			&& (now - le.last_packet > 50000000))
+			// jam finished
+			|| (le_jam_count == 1)
+			)
 		{
 			reset_le();
+			le_jam_count = 0;
+			TXLED_CLR;
+
+			if (jam_mode == JAM_ONCE) {
+				jam_mode = JAM_NONE;
+				requested_mode = MODE_IDLE;
+				goto cleanup;
+			}
+
+			// go back to promisc if the connection dies
+			if (active_mode == MODE_BT_PROMISC_LE)
+				goto cleanup;
+
 			le.link_state = LINK_LISTENING;
 
 			cc2400_strobe(SRFOFF);
@@ -1944,11 +1955,7 @@ void bt_le_sync(u8 active_mode)
 
 			/* Retune */
 			channel = saved_request != 0 ? saved_request : 2402;
-			cc2400_set(FSDIV, channel - 1);
-
-			/* Wait for lock */
-			cc2400_strobe(SFSON);
-			while (!(cc2400_status() & FS_LOCK));
+			restart_jamming = 1;
 		}
 
 		cc2400_set(SYNCL, le.syncl);
@@ -1957,12 +1964,23 @@ void bt_le_sync(u8 active_mode)
 		if (do_hop)
 			hop();
 
-		/* RX mode */
-		dma_init_le();
-		dio_ssp_start();
-		cc2400_strobe(SRX);
+		// ♪ you can jam but you keep turning off the light ♪
+		if (le_jam_count > 0) {
+			le_jam();
+			--le_jam_count;
+		} else {
+			/* RX mode */
+			dma_init_le();
+			dio_ssp_start();
 
-	rx_continue:
+			if (restart_jamming) {
+				cc2400_rx_sync(rbit(le.access_address));
+				restart_jamming = 0;
+			} else {
+				cc2400_strobe(SRX);
+			}
+		}
+
 		rx_tc = 0;
 		rx_err = 0;
 	}
@@ -2025,7 +2043,6 @@ int cb_follow_le() {
 			// send to PC
 			enqueue(LE_PACKET, idle_rxbuf);
 			RXLED_SET;
-			--rx_pkts;
 
 			packet_cb(idle_rxbuf);
 
@@ -2061,6 +2078,10 @@ void connection_follow_cb(u8 *packet) {
 		le.interval_timer = le.conn_interval - 1;
 		le.conn_count = 0;
 		le.update_pending = 0;
+
+		// hue hue hue
+		if (jam_mode != JAM_NONE)
+			le_jam_count = JAM_COUNT_DEFAULT;
 
 	} else if (le.link_state == LINK_CONNECTED) {
 		u8 llid =  header & 0x03;
@@ -2140,6 +2161,8 @@ void bt_follow_le() {
 	packet_cb = connection_follow_cb;
 	bt_generic_le(MODE_BT_FOLLOW_LE);
 	*/
+
+	mode = MODE_IDLE;
 }
 
 // issue state change message
@@ -2164,6 +2187,8 @@ void promisc_recover_hop_increment(u8 *packet) {
 		do_hop = 1;
 	} else if (channel == 2406) {
 		u32 second_ts = CLK100NS;
+		if (second_ts < first_ts)
+			second_ts += 3276800000; // handle rollover
 		// Number of channels hopped between previous and current timestamp.
 		u32 channels_hopped = DIVIDE_ROUND(second_ts - first_ts,
 										   le.conn_interval * LE_BASECLK);
@@ -2182,6 +2207,9 @@ void promisc_recover_hop_increment(u8 *packet) {
 			packet_cb = connection_follow_cb;
 			le_promisc_state(3, &le.channel_increment, 1);
 
+			if (jam_mode != JAM_NONE)
+				le_jam_count = JAM_COUNT_DEFAULT;
+
 			return;
 		}
 		hop_direct_channel = 2404;
@@ -2195,10 +2223,10 @@ void promisc_recover_hop_increment(u8 *packet) {
 
 void promisc_recover_hop_interval(u8 *packet) {
 	static u32 prev_clk = 0;
-	static u32 smallest_interval = 0xffffffff;
-	static int consec = 0;
 
 	u32 cur_clk = CLK100NS;
+	if (cur_clk < prev_clk)
+		cur_clk += 3267800000; // handle rollover
 	u32 clk_diff = cur_clk - prev_clk;
 	u16 obsv_hop_interval; // observed hop interval
 
@@ -2206,15 +2234,15 @@ void promisc_recover_hop_interval(u8 *packet) {
 	if (clk_diff < 2 * LE_BASECLK)
 		return;
 
-	if (clk_diff < smallest_interval)
-		smallest_interval = clk_diff;
+	if (clk_diff < le_promisc.smallest_hop_interval)
+		le_promisc.smallest_hop_interval = clk_diff;
 
-	obsv_hop_interval = DIVIDE_ROUND(smallest_interval, 37 * LE_BASECLK);
+	obsv_hop_interval = DIVIDE_ROUND(le_promisc.smallest_hop_interval, 37 * LE_BASECLK);
 
 	if (le.conn_interval == obsv_hop_interval) {
 		// 5 consecutive hop intervals: consider it legit and move on
-		++consec;
-		if (consec == 5) {
+		++le_promisc.consec_intervals;
+		if (le_promisc.consec_intervals == 5) {
 			packet_cb = promisc_recover_hop_increment;
 			hop_direct_channel = 2404;
 			hop_mode = HOP_DIRECT;
@@ -2223,7 +2251,7 @@ void promisc_recover_hop_interval(u8 *packet) {
 		}
 	} else {
 		le.conn_interval = obsv_hop_interval;
-		consec = 0;
+		le_promisc.consec_intervals = 0;
 	}
 
 	prev_clk = cur_clk;
@@ -2247,31 +2275,24 @@ void promisc_follow_cb(u8 *packet) {
 	}
 }
 
-// LFU cache of recently seen AA's
-struct active_aa {
-	u32 aa;
-	int freq;
-} active_aa_list[32] = { { 0, 0, }, };
-#define AA_LIST_SIZE (int)(sizeof(active_aa_list) / sizeof(struct active_aa))
-
 // called when we see an AA, add it to the list
 void see_aa(u32 aa) {
 	int i, max = -1, killme = -1;
 	for (i = 0; i < AA_LIST_SIZE; ++i)
-		if (active_aa_list[i].aa == aa) {
-			++active_aa_list[i].freq;
+		if (le_promisc.active_aa[i].aa == aa) {
+			++le_promisc.active_aa[i].count;
 			return;
 		}
 
 	// evict someone
 	for (i = 0; i < AA_LIST_SIZE; ++i)
-		if (active_aa_list[i].freq < max || max < 0) {
+		if (le_promisc.active_aa[i].count < max || max < 0) {
 			killme = i;
-			max = active_aa_list[i].freq;
+			max = le_promisc.active_aa[i].count;
 		}
 
-	active_aa_list[killme].aa = aa;
-	active_aa_list[killme].freq = 1;
+	le_promisc.active_aa[killme].aa = aa;
+	le_promisc.active_aa[killme].count = 1;
 }
 
 /* le promiscuous mode */
@@ -2356,8 +2377,8 @@ int cb_le_promisc(char *unpacked) {
 
 	// once we see an AA 5 times, start following it
 	for (i = 0; i < AA_LIST_SIZE; ++i) {
-		if (active_aa_list[i].freq > 3) {
-			le_set_access_address(active_aa_list[i].aa);
+		if (le_promisc.active_aa[i].count > 3) {
+			le_set_access_address(le_promisc.active_aa[i].aa);
 			data_cb = cb_follow_le;
 			packet_cb = promisc_follow_cb;
 			le.crc_verify = 0;
@@ -2371,21 +2392,30 @@ int cb_le_promisc(char *unpacked) {
 }
 
 void bt_promisc_le() {
-	// jump to a random data channel and turn up the squelch
-	channel = 2440;
+	while (requested_mode == MODE_BT_PROMISC_LE) {
+		reset_le_promisc();
 
-	// if the PC hasn't given us AA, determine by listening
-	if (!le.target_set) {
-		cs_threshold_req = -70;
-		cs_threshold_calc_and_set();
-		data_cb = cb_le_promisc;
-		bt_generic_le(MODE_BT_PROMISC_LE);
+		// jump to a random data channel and turn up the squelch
+		if ((channel & 1) == 1)
+			channel = 2440;
+
+		// if the PC hasn't given us AA, determine by listening
+		if (!le.target_set) {
+			// cs_threshold_req = -80;
+			cs_threshold_calc_and_set();
+			data_cb = cb_le_promisc;
+			bt_generic_le(MODE_BT_PROMISC_LE);
+		}
+
+		// could have got mode change in middle of above
+		if (requested_mode != MODE_BT_PROMISC_LE)
+			break;
+
+		le_promisc_state(0, &le.access_address, 4);
+		packet_cb = promisc_follow_cb;
+		le.crc_verify = 0;
+		bt_le_sync(MODE_BT_PROMISC_LE);
 	}
-
-	le_promisc_state(0, &le.access_address, 4);
-	packet_cb = promisc_follow_cb;
-	le.crc_verify = 0;
-	bt_le_sync(MODE_BT_PROMISC_LE);
 }
 
 void bt_slave_le() {
@@ -2564,11 +2594,12 @@ int main()
 					reset();
 					break;
 				case MODE_RX_SYMBOLS:
-					if (rx_pkts)
-						bt_stream_rx();
+					mode = MODE_RX_SYMBOLS;
+					bt_stream_rx();
 					break;
 				case MODE_BT_FOLLOW:
-					bt_follow();
+					mode = MODE_BT_FOLLOW;
+					bt_stream_rx();
 					break;
 				case MODE_BT_FOLLOW_LE:
 					bt_follow_le();
@@ -2599,6 +2630,10 @@ int main()
 					break;
 				case MODE_LED_SPECAN:
 					led_specan();
+					break;
+				case MODE_EGO:
+					mode = MODE_EGO;
+					ego_main(ego_mode);
 					break;
 				case MODE_IDLE:
 					cc2400_idle();

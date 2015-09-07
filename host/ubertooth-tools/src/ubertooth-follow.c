@@ -26,7 +26,7 @@
 
 #include <unistd.h>
 #include <stdlib.h>
-#include <signal.h>
+#include <err.h>
 
 #include "ubertooth.h"
 #include <btbb.h>
@@ -47,7 +47,7 @@ static void usage()
 	printf("\t-u<UAP> (in hexadecimal)\n");
 	printf("\t-U<0-7> set ubertooth device to use\n");
 	printf("\t-r<filename> capture packets to PCAPNG file\n");
-#if defined(USE_PCAP)
+#ifdef ENABLE_PCAP
 	printf("\t-q<filename> capture packets to PCAP file\n");
 #endif
 	printf("\t-e max_ac_errors\n");
@@ -57,15 +57,6 @@ static void usage()
 	printf("\t-w USB delay in 625us timeslots (default:5)\n");
 	printf("\nLAP and UAP are both required, if not given they are read from the local device, in some cases this may give the incorrect address.\n");
 //	printf("If an input file is not specified, an Ubertooth device is used for live capture.\n");
-}
-
-void cleanup(int sig)
-{
-	sig = sig;
-	if (devh) {
-		ubertooth_stop(devh);
-	}
-	exit(0);
 }
 
 int main(int argc, char *argv[])
@@ -115,7 +106,7 @@ int main(int argc, char *argv[])
 				printf("Ignoring extra capture file: %s\n", optarg);
 			}
 			break;
-#if defined(USE_PCAP)
+#ifdef ENABLE_PCAP
 		case 'q':
 			if (!h_pcap_bredr) {
 				if (btbb_pcap_create_file(optarg, &h_pcap_bredr)) {
@@ -233,9 +224,7 @@ int main(int argc, char *argv[])
 	}
 	
 	/* Clean up on exit. */
-	signal(SIGINT,cleanup);
-	signal(SIGQUIT,cleanup);
-	signal(SIGTERM,cleanup);
+	register_cleanup_handler(devh);
 	
 	devh = ubertooth_start(ubertooth_device);
 	if (devh == NULL) {

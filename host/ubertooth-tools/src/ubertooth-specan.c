@@ -20,50 +20,62 @@
  */
 
 #include <getopt.h>
-#include <stdbool.h>
+#include <stdlib.h>
 #include "ubertooth.h"
 
-extern char Quiet;
+extern u8 debug;
+extern FILE *dumpfile;
 
-static void usage(void)
+struct libusb_device_handle *devh = NULL;
+
+static void usage(FILE *file)
 {
-	printf("ubertooth-specan - output a continuous stream of signal strengths\n");
-	printf("Usage:\n");
-	printf("\t-h this help\n");
-	printf("\t-g output suitable for feedgnuplot\n");
-	printf("\t-G output suitable for 3D feedgnuplot\n");
-	printf("\t-l lower frequency (default 2402)\n");
-	printf("\t-q quiet (suppress stderr chatter)\n");
-	printf("\t-u upper frequency (default 2480)\n");
-	printf("\t-U<0-7> set ubertooth device to use\n");
+	fprintf(file, "ubertooth-specan - output a continuous stream of signal strengths\n");
+	fprintf(file, "Usage:\n");
+	fprintf(file, "\t-h this help\n");
+	fprintf(file, "\t-v verbose (print debug information to stderr)\n");
+	fprintf(file, "\t-g output suitable for feedgnuplot\n");
+	fprintf(file, "\t-G output suitable for 3D feedgnuplot\n");
+	fprintf(file, "\t-d <filename> output to file\n");
+	fprintf(file, "\t-l lower frequency (default 2402)\n");
+	fprintf(file, "\t-u upper frequency (default 2480)\n");
+	fprintf(file, "\t-U<0-7> set ubertooth device to use\n");
 }
-
 
 int main(int argc, char *argv[])
 {
-	int opt, gnuplot= false;
+	int opt, r = 0, output_mode = SPECAN_STDOUT;
 	int lower= 2402, upper= 2480;
 	char ubertooth_device = -1;
 
-	struct libusb_device_handle *devh = NULL;
-
-
-	while ((opt=getopt(argc,argv,"hgGl::qu::U:")) != EOF) {
+	while ((opt=getopt(argc,argv,"vhgGd:l::u::U:")) != EOF) {
 		switch(opt) {
+		case 'v':
+			debug++;
+			break;
 		case 'g':
-			gnuplot= GNUPLOT_NORMAL;
+			output_mode = SPECAN_GNUPLOT_NORMAL;
 			break;
 		case 'G':
-			gnuplot= GNUPLOT_3D;
+			output_mode = SPECAN_GNUPLOT_3D;
+			break;
+		case 'd':
+			output_mode = SPECAN_FILE;
+			if(*optarg == '-') {
+				dumpfile = stdout;
+			} else {
+				dumpfile = fopen(optarg, "w");
+				if (dumpfile == NULL) {
+					perror(optarg);
+					return 1;
+				}
+			}
 			break;
 		case 'l':
 			if (optarg)
 				lower= atoi(optarg);
 			else
 				printf("lower: %d\n", lower);
-			break;
-		case 'q':
-			Quiet= true;
 			break;
 		case 'u':
 			if (optarg)
@@ -75,8 +87,10 @@ int main(int argc, char *argv[])
 			ubertooth_device = atoi(optarg);
 			break;
 		case 'h':
+			usage(stdout);
+			return 0;
 		default:
-			usage();
+			usage(stderr);
 			return 1;
 		}
 	}
@@ -84,18 +98,20 @@ int main(int argc, char *argv[])
 	devh = ubertooth_start(ubertooth_device);
 
 	if (devh == NULL) {
-		usage();
+		usage(stderr);
 		return 1;
 	}
-
-
-	while (1)
-		/* specan(devh, 512, 0xFFFF, 2268, 2794); */
-		if(gnuplot)
-			do_specan(devh, 512, 0xFFFF, lower, upper, gnuplot);
-		else
-			specan(devh, 512, 0xFFFF, lower, upper);
+	
+	/* Clean up on exit. */
+	register_cleanup_handler(devh);
+	
+	while (1) {
+		r = specan(devh, 512, lower, upper, output_mode);
+		if(r<0)
+			break;
+	}
 
 	ubertooth_stop(devh);
-	return 0;
+	fprintf(stderr, "Ubertooth stopped\n");
+	return r;
 }

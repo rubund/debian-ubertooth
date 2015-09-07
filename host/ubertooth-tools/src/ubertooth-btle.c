@@ -24,19 +24,16 @@
 #include <err.h>
 #include <getopt.h>
 #include <string.h>
-#include <signal.h>
 #include <unistd.h>
 #include <stdlib.h>
 
-#ifdef USE_PCAP
+#ifdef ENABLE_PCAP
 #include <pcap.h>
 extern pcap_t *pcap_dumpfile;
 extern pcap_dumper_t *dumper;
-#endif // USE_PCAP
+#endif // ENABLE_PCAP
 
 struct libusb_device_handle *devh = NULL;
-extern FILE *infile;
-extern FILE *dumpfile;
 
 int convert_mac_address(char *s, uint8_t *o) {
 	int i;
@@ -83,17 +80,19 @@ static void usage(void)
 	printf("\t-s<address> faux slave mode, using MAC addr (example: -s22:44:66:88:aa:cc)\n");
 	printf("\t-t<address> set connection following target (example: -t22:44:66:88:aa:cc)\n");
 	printf("\n");
+	printf("    Interference (use with -f or -p):\n");
+	printf("\t-i interfere with one connection and return to idle\n");
+	printf("\t-I interfere continuously\n");
+	printf("\n");
 	printf("    Data source:\n");
-	printf("\t-i<filename> read packets from file\n");
 	printf("\t-U<0-7> set ubertooth device to use\n");
 	printf("\n");
 	printf("    Misc:\n");
 	printf("\t-r<filename> capture packets to PCAPNG file\n");
-#if defined(USE_PCAP)
+#ifdef ENABLE_PCAP
 	printf("\t-q<filename> capture packets to PCAP file (DLT_BLUETOOTH_LE_LL_WITH_PHDR)\n");
 	printf("\t-c<filename> capture packets to PCAP file (DLT_PPI)\n");
 #endif
-	printf("\t-d<filename> dump packets to binary file\n");
 	printf("\t-A<index> advertising channel index (default 37)\n");
 	printf("\t-v[01] verify CRC mode, get status or enable/disable\n");
 	printf("\t-x<n> allow n access address offenses (default 32)\n");
@@ -102,24 +101,16 @@ static void usage(void)
 	printf("In get/set mode no capture occurs.\n");
 }
 
-void cleanup(int sig)
-{
-	sig = sig;
-	if (devh) {
-		ubertooth_stop(devh);
-	}
-	exit(0);
-}
-
 int main(int argc, char *argv[])
 {
 	int opt;
-	int do_follow, do_file, do_promisc;
+	int do_follow, do_promisc;
 	int do_get_aa, do_set_aa;
 	int do_crc;
 	int do_adv_index;
 	int do_slave_mode;
 	int do_target;
+	enum jam_modes jam_mode = JAM_NONE;
 	char ubertooth_device = -1;
 
 	btle_options cb_opts = { .allowed_access_address_errors = 32 };
@@ -128,13 +119,13 @@ int main(int argc, char *argv[])
 	u32 access_address;
 	uint8_t mac_address[6] = { 0, };
 
-	do_follow = do_file = 0, do_promisc = 0;
+	do_follow = do_promisc = 0;
 	do_get_aa = do_set_aa = 0;
 	do_crc = -1; // 0 and 1 mean set, 2 means get
 	do_adv_index = 37;
 	do_slave_mode = do_target = 0;
 
-	while ((opt=getopt(argc,argv,"a::r:d:hfpi:U:v::A:s:t:x:c:q:")) != EOF) {
+	while ((opt=getopt(argc,argv,"a::r:hfpU:v::A:s:t:x:c:q:jJiI")) != EOF) {
 		switch(opt) {
 		case 'a':
 			if (optarg == NULL) {
@@ -150,15 +141,6 @@ int main(int argc, char *argv[])
 		case 'p':
 			do_promisc = 1;
 			break;
-		case 'i':
-			do_file = 1;
-			infile = fopen(optarg, "r");
-			if (infile == NULL) {
-				printf("Could not open file %s\n", optarg);
-				usage();
-				return 1;
-			}
-			break;
 		case 'U':
 			ubertooth_device = atoi(optarg);
 			break;
@@ -172,7 +154,7 @@ int main(int argc, char *argv[])
 				printf("Ignoring extra capture file: %s\n", optarg);
 			}
 			break;
-#if defined(USE_PCAP)
+#ifdef ENABLE_PCAP
 		case 'q':
 			if (!h_pcap_le) {
 				if (lell_pcap_create_file(optarg, &h_pcap_le)) {
@@ -194,13 +176,6 @@ int main(int argc, char *argv[])
 			}
 			break;
 #endif
-		case 'd':
-			dumpfile = fopen(optarg, "w");
-			if (dumpfile == NULL) {
-				perror(optarg);
-				return 1;
-			}
-			break;
 		case 'v':
 			if (optarg)
 				do_crc = atoi(optarg) ? 1 : 0;
@@ -239,17 +214,19 @@ int main(int argc, char *argv[])
 				return 1;
 			}
 			break;
+		case 'i':
+		case 'j':
+			jam_mode = JAM_ONCE;
+			break;
+		case 'I':
+		case 'J':
+			jam_mode = JAM_CONTINUOUS;
+			break;
 		case 'h':
 		default:
 			usage();
 			return 1;
 		}
-	}
-
-	if (do_file) {
-		rx_btle_file(infile);
-		fclose(infile);
-		return 0; // do file is the only command that doesn't open ubertooth
 	}
 
 	devh = ubertooth_start(ubertooth_device);
@@ -259,14 +236,21 @@ int main(int argc, char *argv[])
 	}
 
 	/* Clean up on exit. */
-	signal(SIGINT, cleanup);
-	signal(SIGQUIT, cleanup);
-	signal(SIGTERM, cleanup);
+	register_cleanup_handler(devh);
 
+	if (do_follow && do_promisc) {
+		printf("Error: must choose either -f or -p, one or the other pal\n");
+		return 1;
+	}
 
 	if (do_follow || do_promisc) {
 		usb_pkt_rx pkt;
 
+		int r = cmd_set_jam_mode(devh, jam_mode);
+		if (jam_mode != JAM_NONE && r != 0) {
+			printf("Jamming not supported\n");
+			return 1;
+		}
 		cmd_set_modulation(devh, MOD_BT_LOW_ENERGY);
 
 		if (do_follow) {

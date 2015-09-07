@@ -83,6 +83,15 @@ enum ubertooth_usb_commands {
     UBERTOOTH_GET_COMPILE_INFO = 55,
     UBERTOOTH_BTLE_SET_TARGET = 56,
     UBERTOOTH_BTLE_PHY        = 57,
+    UBERTOOTH_WRITE_REGISTER  = 58,
+    UBERTOOTH_JAM_MODE        = 59,
+    UBERTOOTH_EGO             = 60,
+};
+
+enum jam_modes {
+	JAM_NONE       = 0,
+	JAM_ONCE       = 1,
+	JAM_CONTINUOUS = 2,
 };
 
 enum modulations {
@@ -98,6 +107,7 @@ enum usb_pkt_types {
 	KEEP_ALIVE = 3,
 	SPECAN     = 4,
 	LE_PROMISC = 5,
+	EGO_PACKET = 6,
 };
 
 /*

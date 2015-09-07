@@ -22,13 +22,25 @@
 # Based heavily upon the hackrf cmake setup.
 
 find_package(BTBB REQUIRED)
-find_package(PCAP)
 find_package(BLUETOOTH)
 
-if(MSVC)
+# Use pcap only if BTBB supports it and user hasn't explicitly disabled it
+# If user explicitly enables it but BTBB doesn't support it, raise an error
+if( (NOT DEFINED USE_PCAP) OR USE_PCAP )
+	if( USE_PCAP AND (NOT HAVE_BTBB_PCAP) )
+		message( FATAL_ERROR
+			"libbtbb does not support pcap, which is required for USE_PCAP")
+	else()
+		if(HAVE_BTBB_PCAP)
+			add_definitions( -DENABLE_PCAP )
+		endif()
+	endif()
+endif()
+
+if(USE_OWN_GNU_GETOPT)
 	include_directories(../getopt)
 	add_library(libgetopt_static STATIC ../getopt/getopt.c)
-endif()
+endif(USE_OWN_GNU_GETOPT)
 
 if(NOT libubertooth_SOURCE_DIR)
 	find_package(UBERTOOTH REQUIRED)
@@ -43,22 +55,11 @@ include_directories(${LIBUSB_INCLUDE_DIR} ${LIBBTBB_INCLUDE_DIR})
 
 LIST(APPEND TOOLS_LINK_LIBS ${LIBUSB_LIBRARIES} ${LIBBTBB_LIBRARIES})
 
-if( USE_PCAP AND NOT ${PCAP_FOUND} )
-	message( FATAL_ERROR
-		"Cannot find libpcap, which is required for USE_PCAP")
-endif()
-
-if( ${PCAP_FOUND} )
-	include_directories(${PCAP_INCLUDE_DIRS})
-	LIST(APPEND TOOLS_LINK_LIBS ${PCAP_LIBRARIES})
-	add_definitions( -DUSE_PCAP )
-endif( ${PCAP_FOUND} )
-
-if(MSVC)
+if(USE_OWN_GNU_GETOPT)
 	LIST(APPEND TOOLS_LINK_LIBS libgetopt_static)
-endif()
+endif(USE_OWN_GNU_GETOPT)
 
-LIST(APPEND TOOLS ubertooth-rx ubertooth-dump ubertooth-util ubertooth-btle)
+LIST(APPEND TOOLS ubertooth-rx ubertooth-dump ubertooth-util ubertooth-btle ubertooth-dfu ubertooth-specan ubertooth-ego)
 
 if( USE_BLUEZ AND NOT ${LIBBLUETOOTH_FOUND} )
 	message( FATAL_ERROR
