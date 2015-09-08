@@ -1,2 +1,3 @@
 01_fixpythoninstall.patch
 01_fix_install.patch
+03_also_build_bootloader.patch
