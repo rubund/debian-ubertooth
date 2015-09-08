@@ -1,5 +1,7 @@
 libubertooth.so.0 libubertooth0 #MINVER#
  cb_btle@Base 2014.04.R1+20150223git977da40
+ cb_ego@Base 2015.09.R2
+ cleanup_devh@Base 2015.09.R2
  cmd_btle_promisc@Base 2014.04.R1+20150223git977da40
  cmd_btle_set_target@Base 2014.04.R1+20150223git977da40
  cmd_btle_slave@Base 2014.04.R1+20150223git977da40
@@ -7,6 +9,7 @@ libubertooth.so.0 libubertooth0 #MINVER#
  cmd_clear_afh_map@Base 2014.04.R1+20150223git977da40
  cmd_do_something@Base 2014.04.R1+20150223git977da40
  cmd_do_something_reply@Base 2014.04.R1+20150223git977da40
+ cmd_ego@Base 2015.09.R2
  cmd_flash@Base 2014.04.R1+20150223git977da40
  cmd_get_access_address@Base 2014.04.R1+20150223git977da40
  cmd_get_board_id@Base 2014.04.R1+20150223git977da40
@@ -40,6 +43,7 @@ libubertooth.so.0 libubertooth0 #MINVER#
  cmd_set_crc_verify@Base 2014.04.R1+20150223git977da40
  cmd_set_hgm@Base 2014.04.R1+20150223git977da40
  cmd_set_isp@Base 2014.04.R1+20150223git977da40
+ cmd_set_jam_mode@Base 2015.09.R2
  cmd_set_modulation@Base 2014.04.R1+20150223git977da40
  cmd_set_paen@Base 2014.04.R1+20150223git977da40
  cmd_set_palevel@Base 2014.04.R1+20150223git977da40
@@ -51,7 +55,7 @@ libubertooth.so.0 libubertooth0 #MINVER#
  cmd_start_hopping@Base 2014.04.R1+20150223git977da40
  cmd_stop@Base 2014.04.R1+20150223git977da40
  cmd_tx_test@Base 2014.04.R1+20150223git977da40
- do_specan@Base 2014.04.R1+20150223git977da40
+ debug@Base 2015.09.R2
  dumpfile@Base 2014.04.R1+20150223git977da40
  follow_pn@Base 2014.04.R1+20150223git977da40
  h_pcap_bredr@Base 2014.04.R1+20150223git977da40
@@ -62,6 +66,7 @@ libubertooth.so.0 libubertooth0 #MINVER#
  max_ac_errors@Base 2014.04.R1+20150223git977da40
  print_serial@Base 2014.04.R1+20150223git977da40
  print_version@Base 2014.04.R1+20150223git977da40
+ register_cleanup_handler@Base 2015.09.R2
  rx_btle_file@Base 2014.04.R1+20150223git977da40
  rx_dump@Base 2014.04.R1+20150223git977da40
  rx_file@Base 2014.04.R1+20150223git977da40
