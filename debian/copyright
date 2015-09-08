@@ -3,8 +3,8 @@ Upstream-Name: ubertooth
 Source: https://github.com/greatscottgadgets/ubertooth
 
 Files: *
-Copyright: 2010-2014 Mike Ossmann, Dominic Spill, Jared Boone
-           2012-2014 Mike Ryan, Will Code, Christopher Kilgour
+Copyright: 2010-2015 Mike Ossmann, Dominic Spill, Jared Boone
+           2012-2015 Mike Ryan, Will Code, Christopher Kilgour
 License: GPL-2+
 
 Files: firmware/bluetooth_rxtx/ubertooth_usb.c
