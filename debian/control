@@ -12,8 +12,8 @@ Build-Depends: debhelper (>= 9),
                python-all-dev,
                gcc-arm-none-eabi
 Standards-Version: 3.9.6
-Vcs-Git: https://github.com/greatscottgadgets/ubertooth.git
-Vcs-Browser: https://github.com/greatscottgadgets/ubertooth/
+Vcs-Git: git://github.com/rubund/debian-ubertooth.git
+Vcs-Browser: https://github.com/rubund/debian-ubertooth/tree/master
 Homepage: http://ubertooth.sourceforge.net/
 
 Package: libubertooth0
@@ -62,6 +62,17 @@ Description: Shared library for Bluetooth experimentation - debugging symbols
  This package contains the debugging files used to investigate problems with
  the ubertooth library.
 
+Package: ubertooth-firmware
+Architecture: all
+Depends: ${misc:Depends}
+Description: Firmware for Ubertooth
+ The Ubertooth hardware needs some firmware to run. The firmware is built with
+ arm-none-eabi-gcc. This package contains a number of firmware images that
+ may be programmed into the Ubertooth hardware using the 'ubertooth-dfu'
+ command.
+ .
+ The firmware images are installed in /usr/share/ubertooth/firmware/
+
 Package: ubertooth
 Architecture: any
 Depends: libubertooth0 (= ${binary:Version}),
@@ -79,13 +90,3 @@ Description: 2.4 GHz wireless development platform for Bluetooth experimentation
  sniffer and can sniff some data from Basic Rate (BR) Bluetooth Classic
  connections.
 
-Package: ubertooth-firmware
-Architecture: all
-Depends: ${misc:Depends}
-Description: Firmware for Ubertooth
- The Ubertooth hardware needs some firmware to run. The firmware is built with
- arm-none-eabi-gcc. This package contains a number of firmware images that
- may be programmed into the Ubertooth hardware using the 'ubertooth-dfu'
- command.
- .
- The firmware images are installed in /usr/share/ubertooth/firmware/
