@@ -10,7 +10,9 @@ Build-Depends: debhelper (>= 9),
                libbluetooth-dev,
                libbtbb-dev,
                python-all-dev,
-               gcc-arm-none-eabi
+               gcc-arm-none-eabi,
+               libnewlib-arm-none-eabi,
+               libstdc++-arm-none-eabi-newlib
 Standards-Version: 3.9.6
 Vcs-Git: git://github.com/rubund/debian-ubertooth.git
 Vcs-Browser: https://github.com/rubund/debian-ubertooth/tree/master
