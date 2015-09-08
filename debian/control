@@ -24,6 +24,7 @@ Section: libs
 Depends: ${shlibs:Depends},
          ${misc:Depends}
 Pre-Depends: ${misc:Pre-Depends}
+Multi-Arch: same
 Description: Shared library for Bluetooth experimentation
  Project Ubertooth is an open source wireless development platform suitable for
  Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)
@@ -41,6 +42,7 @@ Depends: libubertooth0 (= ${binary:Version}),
          libbluetooth-dev,
          libbtbb-dev,
          ${misc:Depends}
+Multi-Arch: same
 Description: Shared library for Bluetooth experimentation - development files
  Project Ubertooth is an open source wireless development platform suitable for
  Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)
@@ -55,6 +57,7 @@ Section: debug
 Priority: extra
 Depends: libubertooth0 (= ${binary:Version}),
          ${misc:Depends}
+Multi-Arch: same
 Description: Shared library for Bluetooth experimentation - debugging symbols
  Project Ubertooth is an open source wireless development platform suitable for
  Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)
