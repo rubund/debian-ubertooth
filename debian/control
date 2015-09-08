@@ -80,7 +80,6 @@ Depends: libubertooth0 (= ${binary:Version}),
          ${misc:Depends},
          python,
          python-numpy,
-         python-usb (>= 1.0.0~b2-1),
          python-pyside.qtcore,
          python-pyside.qtgui
 Recommends: ubertooth-firmware
