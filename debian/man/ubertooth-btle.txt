@@ -16,8 +16,11 @@ Major modes:
   -s<address>   faux slave mode, using MAC addr (example: -s22:44:66:88:aa:cc)
   -t<address>   set connection following target (example: -t22:44:66:88:aa:cc)
 
+Interference (use with -f or -p):
+  -i            interfere with one connection and return to idle
+  -I            interfere continuously
+
 Data source:
-  -i<filename>  read packets from file
   -U<0-7>   set ubertooth device to use
 
 Misc:

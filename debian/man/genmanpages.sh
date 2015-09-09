@@ -10,3 +10,5 @@ txt2man -t UBERTOOTH-SCAN         -s 1 ubertooth-scan.txt       > ubertooth-scan
 txt2man -t UBERTOOTH-FOLLOW       -s 1 ubertooth-follow.txt     > ubertooth-follow.1
 txt2man -t UBERTOOTH-DUMP         -s 1 ubertooth-dump.txt       > ubertooth-dump.1
 txt2man -t UBERTOOTH-UTIL         -s 1 ubertooth-util.txt       > ubertooth-util.1
+txt2man -t UBERTOOTH-EGO          -s 1 ubertooth-ego.txt        > ubertooth-ego.1
+txt2man -t UBERTOOTH-SPECAN       -s 1 ubertooth-specan.txt     > ubertooth-specan.1
