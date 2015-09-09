@@ -4,7 +4,6 @@ NAME
 SYNOPSIS
   ubertooth-rx [options]
 
-DESCRIPTION
 
 OPTIONS
   -h         help

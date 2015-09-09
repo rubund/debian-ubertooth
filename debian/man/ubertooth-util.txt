@@ -4,7 +4,6 @@ NAME
 SYNOPSIS
   ubertooth-util [options]
 
-DESCRIPTION
 
 OPTIONS
   -a[0-7]       get/set power amplifier level

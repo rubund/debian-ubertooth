@@ -4,7 +4,6 @@ NAME
 SYNOPSIS
   ubertooth-debug [options]
 
-DESCRIPTION
 
 OPTIONS
   -h   help

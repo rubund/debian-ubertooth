@@ -4,7 +4,6 @@ NAME
 SYNOPSIS
   ubertooth-dump [options]
 
-DESCRIPTION
 
 OPTIONS
   -h   help

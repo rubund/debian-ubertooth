@@ -4,7 +4,6 @@ NAME
 SYNOPSIS
   ubertooth-ego [options]
 
-DESCRIPTION
 
 OPTIONS
 

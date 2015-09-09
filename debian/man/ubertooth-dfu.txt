@@ -5,7 +5,6 @@ NAME
 SYNOPSIS
   ubertooth-dfu [options]
 
-DESCRIPTION
 
 
 OPTIONS
