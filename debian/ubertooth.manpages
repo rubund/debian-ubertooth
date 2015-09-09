@@ -7,3 +7,5 @@ debian/man/ubertooth-rx.1
 debian/man/ubertooth-scan.1
 debian/man/ubertooth-specan-ui.1
 debian/man/ubertooth-util.1
+debian/man/ubertooth-ego.1
+debian/man/ubertooth-specan.1
