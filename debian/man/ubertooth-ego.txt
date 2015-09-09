@@ -10,7 +10,7 @@ OPTIONS
 
 
   -h         show help
-  -c <2402-2480>  set channel in MHz (for continous RX)
+  -c <2402-2480>  set channel in MHz (for continuous RX)
 
 Modes:
   -f         follow connections
