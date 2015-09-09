@@ -5,3 +5,10 @@ firmware/bootloader/bootloader.bin usr/share/ubertooth/firmware
 firmware/blinky/blinky.bin usr/share/ubertooth/firmware
 firmware/cc2400_test/cc2400_test.bin usr/share/ubertooth/firmware
 firmware/usb_test/usb_test.bin usr/share/ubertooth/firmware
+
+firmware/bluetooth_rxtx/bluetooth_rxtx.dfu usr/share/ubertooth/firmware/dfu
+firmware/assembly_test/assembly_test.dfu usr/share/ubertooth/firmware/dfu
+firmware/clock_test/clock_test.dfu usr/share/ubertooth/firmware/dfu
+firmware/blinky/blinky.dfu usr/share/ubertooth/firmware/dfu
+firmware/cc2400_test/cc2400_test.dfu usr/share/ubertooth/firmware/dfu
+firmware/usb_test/usb_test.dfu usr/share/ubertooth/firmware/dfu

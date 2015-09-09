@@ -1,13 +1,13 @@
 Description: When building the package, the source is not necessarily part
- of a git repository. This patch makes all removes all git commands. Additionally
+ of a git repository. This patch removes all git command executions. Additionally
  it replaces GIT_REVISION with the current Debian version number. This will go into
  some of the firmware files.
 Author: Ruben Undheim <ruben.undheim@gmail.com>
 
 Index: ubertooth/firmware/common.mk
 ===================================================================
---- ubertooth.orig/firmware/common.mk	2015-09-09 19:21:47.134042873 +0200
-+++ ubertooth/firmware/common.mk	2015-09-09 19:24:31.811793032 +0200
+--- ubertooth.orig/firmware/common.mk	2015-09-09 19:59:33.766061385 +0200
++++ ubertooth/firmware/common.mk	2015-09-09 19:59:36.000000000 +0200
 @@ -50,13 +50,13 @@
  # comment to disable RF transmission
  UBERTOOTH_OPTS += -DTX_ENABLE
