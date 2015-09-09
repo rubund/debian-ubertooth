@@ -1,3 +1,4 @@
 01_fixpythoninstall.patch
 02_fix_missing_dfu.patch
 03_also_build_bootloader.patch
+04_no_git_for_debian.patch

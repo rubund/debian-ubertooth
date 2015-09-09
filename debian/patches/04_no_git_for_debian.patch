@@ -1,0 +1,29 @@
+Description: When building the package, the source is not necessarily part
+ of a git repository. This patch makes all removes all git commands. Additionally
+ it replaces GIT_REVISION with the current Debian version number. This will go into
+ some of the firmware files.
+Author: Ruben Undheim <ruben.undheim@gmail.com>
+
+Index: ubertooth/firmware/common.mk
+===================================================================
+--- ubertooth.orig/firmware/common.mk	2015-09-09 19:21:47.134042873 +0200
++++ ubertooth/firmware/common.mk	2015-09-09 19:24:31.811793032 +0200
+@@ -50,13 +50,13 @@
+ # comment to disable RF transmission
+ UBERTOOTH_OPTS += -DTX_ENABLE
+ 
+-DIRTY = $(shell git status -s --untracked-files=no)
+-ifneq ($(DIRTY), )
+-	DIRTY_FLAG = *
+-endif
++#DIRTY = $(shell git status -s --untracked-files=no)
++#ifneq ($(DIRTY), )
++#	DIRTY_FLAG = *
++#endif
+ 
+ # automatic git version when working out of git
+-GIT_REVISION ?= -D'GIT_REVISION="git-$(shell git log --pretty=format:'%h' -n 1)$(DIRTY_FLAG)"'
++GIT_REVISION ?= -D'GIT_REVISION="2015-09-R2-1"'
+ 
+ # compile info
+ COMPILE_BY ?= -D'COMPILE_BY="$(shell whoami)"'
