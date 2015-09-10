@@ -7,10 +7,7 @@ Copyright: 2010-2015 Mike Ossmann, Dominic Spill, Jared Boone
            2012-2015 Mike Ryan, Will Code, Christopher Kilgour
 License: GPL-2+
 
-Files: firmware/bluetooth_rxtx/ubertooth_usb.c
-       firmware/bluetooth_rxtx/ubertooth_usb.h
-       firmware/assembly_test/assembly_test.c
-       firmware/common/lpcusb/target/usbhw_lpc.c
+Files: firmware/common/lpcusb/target/usbhw_lpc.c
        firmware/common/lpcusb/target/usbstruct.h
        firmware/common/lpcusb/target/usbapi.h
        firmware/common/lpcusb/target/usbcontrol.c
@@ -20,12 +17,24 @@ Files: firmware/bluetooth_rxtx/ubertooth_usb.c
        firmware/common/lpcusb/target/usbhw_lpc.h
        firmware/common/lpcusb/target/usbinit.c
        firmware/common/serial_fifo.c
-       firmware/common/usb_serial.h
        firmware/common/serial_fifo.h
-       firmware/common/usb_serial.c
-       firmware/bootloader/bootloader.cpp
 Copyright: 2006 Bertrik Sikken (bertrik@sikken.nl)
 License: BSD-3-clause
+
+Files: firmware/bootloader/bootloader.cpp
+       firmware/assembly_test/assembly_test.c
+       firmware/bluetooth_rxtx/ubertooth_usb.h
+       firmware/common/usb_serial.h
+       firmware/common/usb_serial.c
+Copyright: 2006 Bertrik Sikken (bertrik@sikken.nl)
+           2010-2011 Michael Ossman <mike@ossmann.com>
+License: GPL-2+ or BSD-3-clause
+
+Files: firmware/bluetooth_rxtx/ubertooth_usb.c
+Copyright: 2006 Bertrik Sikken (bertrik@sikken.nl)
+           2010 Michael Ossman <mike@ossmann.com>
+           2013 Dominic Spill <dominicgs@gmail.com>
+License: GPL-2+ or BSD-3-clause
 
 Files: firmware/common/sections.ld
 Copyright: 2007 CodeSourcery
