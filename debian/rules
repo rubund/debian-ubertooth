@@ -7,6 +7,8 @@ export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
+CHANGELOG_DATE ?= $(shell date -d "`dpkg-parsechangelog --show-field Date`" +"%d %B %Y")
+
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 %:
@@ -15,6 +17,7 @@ DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 override_dh_auto_clean:
 	dh_auto_clean --sourcedirectory=host
 	dh_auto_clean --sourcedirectory=firmware
+	$(RM) debian/man/*.1
 
 override_dh_auto_configure:
 	dh_auto_configure --sourcedirectory=host -- -DLIB_SUFFIX=/$(DEB_HOST_MULTIARCH) \
@@ -33,3 +36,7 @@ override_dh_auto_install:
 override_dh_strip:
 	dh_strip -plibubertooth0 --keep-debug --dbg-package=libubertooth0-dbg
 	dh_strip -pubertooth
+
+override_dh_installman:
+	cd debian/man ; CHANGELOG_DATE="$(CHANGELOG_DATE)" ./genmanpages.sh
+	dh_installman

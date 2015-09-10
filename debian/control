@@ -10,6 +10,7 @@ Build-Depends: debhelper (>= 9),
                libbluetooth-dev,
                libbtbb-dev (>= 2015.09.R2),
                python-all-dev,
+               txt2man,
                gcc-arm-none-eabi,
                libnewlib-arm-none-eabi,
                libstdc++-arm-none-eabi-newlib
