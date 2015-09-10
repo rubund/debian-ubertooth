@@ -22,7 +22,7 @@ Index: ubertooth/firmware/common.mk
 +#else
 +#  DFU_TOOL ?= $(shell which ubertooth-dfu)
 +#endif
-+DFU_TOOL = ../../obj-$(shell dpkg-architecture -qDEB_HOST_MULTIARCH)/ubertooth-tools/src/ubertooth-dfu
++DFU_TOOL = ../../obj-$(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)/ubertooth-tools/src/ubertooth-dfu
  
  # Define Messages
  # English
