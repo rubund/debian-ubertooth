@@ -28,13 +28,13 @@ Files: firmware/bootloader/bootloader.cpp
        firmware/common/usb_serial.c
 Copyright: 2006 Bertrik Sikken (bertrik@sikken.nl)
            2010-2011 Michael Ossman <mike@ossmann.com>
-License: GPL-2+ or BSD-3-clause
+License: GPL-2+ and BSD-3-clause
 
 Files: firmware/bluetooth_rxtx/ubertooth_usb.c
 Copyright: 2006 Bertrik Sikken (bertrik@sikken.nl)
            2010 Michael Ossman <mike@ossmann.com>
            2013 Dominic Spill <dominicgs@gmail.com>
-License: GPL-2+ or BSD-3-clause
+License: GPL-2+ and BSD-3-clause
 
 Files: firmware/common/sections.ld
 Copyright: 2007 CodeSourcery
