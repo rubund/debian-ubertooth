@@ -3,7 +3,7 @@ exec_prefix=/usr/bin
 libdir=/usr/lib
 includedir=/usr/include
 
-Name: libubertooth
+Name: ubertooth
 Description: Shared library for Bluetooth experimentation
 Version: 2015-09-R2
 Libs: -lubertooth
