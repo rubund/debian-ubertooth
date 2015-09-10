@@ -71,6 +71,7 @@ Description: Shared library for Bluetooth experimentation - debugging symbols
 Package: ubertooth-firmware
 Architecture: all
 Depends: ${misc:Depends}
+Suggests: ubertooth-firmware-source
 Description: Firmware for Ubertooth
  The Ubertooth hardware needs some firmware to run. The firmware is built with
  arm-none-eabi-gcc. This package contains a number of firmware images that
@@ -78,6 +79,19 @@ Description: Firmware for Ubertooth
  command.
  .
  The firmware images are installed in /usr/share/ubertooth/firmware/
+
+Package: ubertooth-firmware-source
+Architecture: all
+Depends: ${misc:Depends}
+Recommends: ubertooth
+Suggests: ubertooth-firmware
+Description: Source code for the Ubertooth firmware
+ The Ubertooth hardware needs some firmware to run. The firmware is built with
+ arm-none-eabi-gcc. This package contains the source code for the firmware that
+ is found in the ubertooth-firmware package.
+ .
+ The firmware source may be found in /usr/src/ubertooth-firmware-source.tar.gz
+ after installing this package.
 
 Package: ubertooth
 Architecture: any
@@ -89,6 +103,7 @@ Depends: libubertooth0 (= ${binary:Version}),
          python-pyside.qtcore,
          python-pyside.qtgui
 Recommends: ubertooth-firmware
+Suggests: ubertooth-firmware-source
 Description: 2.4 GHz wireless development platform for Bluetooth experimentation
  Project Ubertooth is an open source wireless development platform suitable for
  Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)

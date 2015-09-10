@@ -18,8 +18,10 @@ override_dh_auto_clean:
 	dh_auto_clean --sourcedirectory=host
 	dh_auto_clean --sourcedirectory=firmware
 	$(RM) debian/man/*.1
+	$(RM) ubertooth-firmware-source.tar.gz
 
 override_dh_auto_configure:
+	GZIP=-9n tar --owner=root --group=root -czvf ubertooth-firmware-source.tar.gz firmware/
 	dh_auto_configure --sourcedirectory=host -- -DLIB_SUFFIX=/$(DEB_HOST_MULTIARCH) \
 	 -DUBERTOOTH_GROUP=plugdev -DUDEV_RULES_PATH=/lib/udev/rules.d
 	dh_auto_configure --sourcedirectory=firmware
