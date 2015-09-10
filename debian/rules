@@ -34,6 +34,8 @@ override_dh_auto_install:
 	chmod a-x firmware/*/*.bin
 	dh_auto_install --sourcedirectory=host
 	dh_auto_install --sourcedirectory=firmware
+	mkdir -p debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig
+	cp debian/ubertooth.pc debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig/
 
 override_dh_strip:
 	dh_strip -plibubertooth0 --keep-debug --dbg-package=libubertooth0-dbg
