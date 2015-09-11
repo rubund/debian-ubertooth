@@ -6,7 +6,7 @@ diff -rupN firmware.orig/bootloader/Makefile firmware/bootloader/Makefile
  #     Use forward slashes for directory separators.
  #     For a directory that has spaces, enclose it in quotes.
 -EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src
-+EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src /usr/include
++EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src /usr/include/ubertooth
  
  # Compiler flag to set the C Standard level.
  #     c89   = "ANSI" C
@@ -18,7 +18,7 @@ diff -rupN firmware.orig/common.mk firmware/common.mk
  #     Use forward slashes for directory separators.
  #     For a directory that has spaces, enclose it in quotes.
 -EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src
-+EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src /usr/include
++EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src /usr/include/ubertooth
  
  # Compiler flag to set the C Standard level.
  #     c89   = "ANSI" C
