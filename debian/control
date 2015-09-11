@@ -71,6 +71,7 @@ Description: Shared library for Bluetooth experimentation - debugging symbols
 Package: ubertooth-firmware
 Architecture: all
 Depends: ${misc:Depends}
+Recommends: ubertooth
 Suggests: ubertooth-firmware-source
 Description: Firmware for Ubertooth
  The Ubertooth hardware needs some firmware to run. The firmware is built with
@@ -83,7 +84,10 @@ Description: Firmware for Ubertooth
 Package: ubertooth-firmware-source
 Architecture: all
 Depends: ${misc:Depends}
-Recommends: ubertooth
+Recommends: ubertooth,
+            gcc-arm-none-eabi,
+            libnewlib-arm-none-eabi,
+            libstdc++-arm-none-eabi-newlib
 Suggests: ubertooth-firmware
 Description: Source code for the Ubertooth firmware
  The Ubertooth hardware needs some firmware to run. The firmware is built with
