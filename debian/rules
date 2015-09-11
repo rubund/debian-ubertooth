@@ -11,6 +11,8 @@ CHANGELOG_DATE ?= $(shell date -d "`dpkg-parsechangelog --show-field Date`" +"%d
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
+UPSTREAM_PACKAGE_VERSION ?= $(shell dpkg-parsechangelog --show-field Version | sed 's/-[^-]*$$//')
+
 %:
 	dh $@
 
@@ -19,6 +21,7 @@ override_dh_auto_clean:
 	dh_auto_clean --sourcedirectory=firmware
 	$(RM) debian/man/*.1
 	$(RM) ubertooth-firmware-source.tar.gz
+	$(RM) debian/ubertooth.pc
 
 override_dh_auto_configure:
 	GZIP=-9n tar --owner=root --group=root -czvf ubertooth-firmware-source.tar.gz firmware/
@@ -29,6 +32,8 @@ override_dh_auto_configure:
 override_dh_auto_build:
 	dh_auto_build --sourcedirectory=host
 	dh_auto_build --sourcedirectory=firmware
+	cat debian/ubertooth.pc.in | sed 's/DEB_HOST_MULTIARCH/$(DEB_HOST_MULTIARCH)/' | \
+	 sed 's/UPSTREAM_PACKAGE_VERSION/$(UPSTREAM_PACKAGE_VERSION)/' > debian/ubertooth.pc
 
 override_dh_auto_install:
 	chmod a-x firmware/*/*.bin
