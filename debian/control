@@ -85,6 +85,7 @@ Package: ubertooth-firmware-source
 Architecture: all
 Depends: ${misc:Depends}
 Recommends: ubertooth,
+            libubertooth-dev,
             gcc-arm-none-eabi,
             libnewlib-arm-none-eabi,
             libstdc++-arm-none-eabi-newlib

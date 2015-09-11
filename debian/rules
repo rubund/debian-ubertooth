@@ -20,20 +20,28 @@ override_dh_auto_clean:
 	dh_auto_clean --sourcedirectory=host
 	dh_auto_clean --sourcedirectory=firmware
 	$(RM) debian/man/*.1
+	$(RM) -r ubertooth-firmware-source
 	$(RM) ubertooth-firmware-source.tar.gz
 	$(RM) debian/ubertooth.pc
 
 override_dh_auto_configure:
-	GZIP=-9n tar --owner=root --group=root -czvf ubertooth-firmware-source.tar.gz firmware/
+	# Creating ubertooth-firmare-source.tar.gz:
+	cp -rf firmware ubertooth-firmware-source
+	cd ubertooth-firmware-source ; patch -R -Np2 < ../debian/patches/02_fix_missing_dfu.patch ; \
+	  patch -Np1 < ../debian/patches/patch_include_source.patch
+	GZIP=-9n tar --owner=root --group=root -czvf ubertooth-firmware-source.tar.gz \
+	  ubertooth-firmware-source/
+	#
+	
 	dh_auto_configure --sourcedirectory=host -- -DLIB_SUFFIX=/$(DEB_HOST_MULTIARCH) \
-	 -DUBERTOOTH_GROUP=plugdev -DUDEV_RULES_PATH=/lib/udev/rules.d
+	  -DUBERTOOTH_GROUP=plugdev -DUDEV_RULES_PATH=/lib/udev/rules.d
 	dh_auto_configure --sourcedirectory=firmware
 
 override_dh_auto_build:
 	dh_auto_build --sourcedirectory=host
 	dh_auto_build --sourcedirectory=firmware
 	cat debian/ubertooth.pc.in | sed 's/DEB_HOST_MULTIARCH/$(DEB_HOST_MULTIARCH)/' | \
-	 sed 's/UPSTREAM_PACKAGE_VERSION/$(UPSTREAM_PACKAGE_VERSION)/' > debian/ubertooth.pc
+	  sed 's/UPSTREAM_PACKAGE_VERSION/$(UPSTREAM_PACKAGE_VERSION)/' > debian/ubertooth.pc
 
 override_dh_auto_install:
 	chmod a-x firmware/*/*.bin
