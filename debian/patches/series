@@ -2,3 +2,4 @@
 02_fix_missing_dfu.patch
 03_also_build_bootloader.patch
 04_no_git_for_debian.patch
+05_move_headers_to_subdir.patch

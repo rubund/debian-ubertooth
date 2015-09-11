@@ -1,0 +1,16 @@
+Description: Install header files to /usr/incude/ubertooth
+ to make it easier to build firmware from source using
+ the ubertooth-firmware-source package.
+Author: Ruben Undheim <ruben.undheim@gmail.com>
+
+--- ubertooth-2015.09.R2.orig/host/libubertooth/src/CMakeLists.txt
++++ ubertooth-2015.09.R2/host/libubertooth/src/CMakeLists.txt
+@@ -90,7 +90,7 @@ if( ${UNIX} )
+            COMPONENT sharedlibs
+            )
+    install(FILES ${c_headers}
+-           DESTINATION include
++           DESTINATION include/ubertooth
+            COMPONENT headers
+            )
+ endif( ${UNIX} )
