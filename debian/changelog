@@ -1,3 +1,9 @@
+ubertooth (2015.09.R2-2) unstable; urgency=medium
+
+  * Set changelog date to UTC with LC_ALL=C to make man pages reproducible.
+
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 19 Feb 2016 17:52:46 +0100
+
 ubertooth (2015.09.R2-1) unstable; urgency=low
 
   * Initial release (Closes: #772509)

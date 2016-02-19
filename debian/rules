@@ -7,7 +7,7 @@ export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
-CHANGELOG_DATE ?= $(shell date -d "`dpkg-parsechangelog --show-field Date`" +"%d %B %Y")
+CHANGELOG_DATE ?= $(shell LC_ALL=C date -u -d "`dpkg-parsechangelog --show-field Date`" +"%d %B %Y")
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
