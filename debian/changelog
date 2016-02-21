@@ -2,6 +2,7 @@ ubertooth (2015.09.R2-2) unstable; urgency=medium
 
   * Set changelog date to UTC with LC_ALL=C to make man pages reproducible.
   * Add --mtime to tar command to make tar-ball reproducible.
+  * Set TIMESTAMP to "", to make firmware reproducible
   * New standards version (3.9.7). No needed updates.
   * Run "cme fix dpkg-control":
     - Changed Vcs-Git to use secure URL.

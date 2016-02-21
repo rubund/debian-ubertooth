@@ -40,7 +40,7 @@ override_dh_auto_configure:
 
 override_dh_auto_build:
 	dh_auto_build --sourcedirectory=host
-	dh_auto_build --sourcedirectory=firmware
+	dh_auto_build --sourcedirectory=firmware -- TIMESTAMP="-DTIMESTAMP=''"
 	cat debian/ubertooth.pc.in | sed 's/DEB_HOST_MULTIARCH/$(DEB_HOST_MULTIARCH)/' | \
 	  sed 's/UPSTREAM_PACKAGE_VERSION/$(UPSTREAM_PACKAGE_VERSION)/' > debian/ubertooth.pc
 
