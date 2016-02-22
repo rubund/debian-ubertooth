@@ -30,8 +30,8 @@ override_dh_auto_configure:
 	cp -rf firmware ubertooth-firmware-source
 	cd ubertooth-firmware-source ; patch -R -Np2 < ../debian/patches/02_fix_missing_dfu.patch ; \
 	  patch -Np1 < ../debian/patches/patch_include_source.patch
-	GZIP=-9n tar --mtime='$(SOURCE_DATE)' --owner=root --group=root -czvf \
-	  ubertooth-firmware-source.tar.gz ubertooth-firmware-source/
+	GZIP=-9n tar --mtime='$(SOURCE_DATE)' --sort=name --owner=root --group=root \
+	  -czvf ubertooth-firmware-source.tar.gz ubertooth-firmware-source/
 	#
 	
 	dh_auto_configure --sourcedirectory=host -- -DLIB_SUFFIX=/$(DEB_HOST_MULTIARCH) \
@@ -40,7 +40,8 @@ override_dh_auto_configure:
 
 override_dh_auto_build:
 	dh_auto_build --sourcedirectory=host
-	dh_auto_build --sourcedirectory=firmware -- TIMESTAMP="-DTIMESTAMP=''"
+	dh_auto_build --sourcedirectory=firmware -- TIMESTAMP="-DTIMESTAMP=''" \
+	  COMPILE_BY="-D'COMPILE_BY=\"user\"'" COMPILE_HOST="-D'COMPILE_HOST=\"localhost\"'"
 	cat debian/ubertooth.pc.in | sed 's/DEB_HOST_MULTIARCH/$(DEB_HOST_MULTIARCH)/' | \
 	  sed 's/UPSTREAM_PACKAGE_VERSION/$(UPSTREAM_PACKAGE_VERSION)/' > debian/ubertooth.pc
 
