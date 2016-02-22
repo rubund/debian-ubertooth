@@ -8,6 +8,7 @@ export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 SOURCE_DATE ?= $(shell dpkg-parsechangelog --show-field Date)
+SOURCE_DATE_UTC ?= $(shell LC_ALL=C date -u -d "$(SOURCE_DATE)")
 CHANGELOG_DATE ?= $(shell LC_ALL=C date -u -d "$(SOURCE_DATE)" +"%d %B %Y")
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
@@ -30,7 +31,7 @@ override_dh_auto_configure:
 	cp -rf firmware ubertooth-firmware-source
 	cd ubertooth-firmware-source ; patch -R -Np2 < ../debian/patches/02_fix_missing_dfu.patch ; \
 	  patch -Np1 < ../debian/patches/patch_include_source.patch
-	GZIP=-9n tar --mtime='$(SOURCE_DATE)' --sort=name --owner=root --group=root \
+	GZIP=-9n tar --mtime='$(SOURCE_DATE_UTC)' --sort=name --owner=root --group=root \
 	  -czvf ubertooth-firmware-source.tar.gz ubertooth-firmware-source/
 	#
 	
