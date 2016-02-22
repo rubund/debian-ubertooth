@@ -1,11 +1,11 @@
-ubertooth (2015.09.R2-3) UNRELEASED; urgency=medium
+ubertooth (2015.09.R2-3) unstable; urgency=medium
 
   * debian/rules:
     - Fix order in tarball to make it reproducible
     - Make COMPILE_BY and COMPILE_HOST also deterministic when building
       bluetooth_rxtx.dfu
 
- -- Ruben Undheim <ruben.undheim@gmail.com>  Tue, 23 Feb 2016 00:04:05 +0100
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Tue, 23 Feb 2016 00:13:13 +0100
 
 ubertooth (2015.09.R2-2) unstable; urgency=medium
 
