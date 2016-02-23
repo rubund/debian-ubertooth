@@ -32,7 +32,8 @@ override_dh_auto_configure:
 	cd ubertooth-firmware-source ; patch -R -Np2 < ../debian/patches/02_fix_missing_dfu.patch ; \
 	  patch -Np1 < ../debian/patches/patch_include_source.patch
 	GZIP=-9n tar --mtime='$(SOURCE_DATE_UTC)' --sort=name --owner=root --group=root \
-	  -czvf ubertooth-firmware-source.tar.gz ubertooth-firmware-source/
+	  --mode=go=rX,u+rw,a-s -czvf ubertooth-firmware-source.tar.gz \
+	  ubertooth-firmware-source/
 	#
 	
 	dh_auto_configure --sourcedirectory=host -- -DLIB_SUFFIX=/$(DEB_HOST_MULTIARCH) \
