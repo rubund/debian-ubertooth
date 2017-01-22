@@ -54,10 +54,6 @@ override_dh_auto_install:
 	mkdir -p debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig
 	cp debian/ubertooth.pc debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig/
 
-override_dh_strip:
-	dh_strip -plibubertooth0 --keep-debug --dbg-package=libubertooth0-dbg
-	dh_strip -pubertooth
-
 override_dh_installman:
 	cd debian/man ; CHANGELOG_DATE="$(CHANGELOG_DATE)" ./genmanpages.sh
 	dh_installman

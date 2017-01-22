@@ -1,4 +1,4 @@
-libubertooth.so.0 libubertooth0 #MINVER#
+libubertooth.so.1 libubertooth1 #MINVER#
  cb_btle@Base 2015.09.R2
  cb_ego@Base 2015.09.R2
  cleanup_devh@Base 2015.09.R2

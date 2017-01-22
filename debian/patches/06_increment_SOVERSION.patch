@@ -1,0 +1,13 @@
+Index: ubertooth/host/libubertooth/src/CMakeLists.txt
+===================================================================
+--- ubertooth.orig/host/libubertooth/src/CMakeLists.txt	2017-01-22 11:47:29.996842127 +0100
++++ ubertooth/host/libubertooth/src/CMakeLists.txt	2017-01-22 11:47:50.091875083 +0100
+@@ -60,7 +60,7 @@
+ 	message(STATUS "Building shared library")
+ 	add_library(ubertooth SHARED ${c_sources})
+ 	target_link_libraries(ubertooth ${LIBUBERTOOTH_LIBS})
+-	set_target_properties(ubertooth PROPERTIES VERSION ${MAJOR_VERSION}.${MINOR_VERSION} SOVERSION 0)
++	set_target_properties(ubertooth PROPERTIES VERSION ${MAJOR_VERSION}.${MINOR_VERSION} SOVERSION 1)
+ 	set_target_properties(ubertooth PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+ 	install(TARGETS ubertooth
+ 			LIBRARY DESTINATION lib${LIB_SUFFIX}

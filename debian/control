@@ -19,7 +19,7 @@ Vcs-Browser: https://github.com/rubund/debian-ubertooth/tree/master
 Vcs-Git: https://github.com/rubund/debian-ubertooth.git
 Homepage: http://ubertooth.sourceforge.net/
 
-Package: libubertooth0
+Package: libubertooth1
 Architecture: any
 Multi-Arch: same
 Section: libs
@@ -38,7 +38,7 @@ Package: libubertooth-dev
 Architecture: any
 Multi-Arch: same
 Section: libdevel
-Depends: libubertooth0 (= ${binary:Version}),
+Depends: libubertooth1 (= ${binary:Version}),
          libusb-1.0-0-dev,
          libpcap-dev,
          libbluetooth-dev,
@@ -51,22 +51,6 @@ Description: Shared library for Bluetooth experimentation - development files
  connections.
  .
  This package provides the development files for using the ubertooth library.
-
-Package: libubertooth0-dbg
-Architecture: any
-Multi-Arch: same
-Section: debug
-Priority: extra
-Depends: libubertooth0 (= ${binary:Version}),
-         ${misc:Depends}
-Description: Shared library for Bluetooth experimentation - debugging symbols
- Project Ubertooth is an open source wireless development platform suitable for
- Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)
- sniffer and can sniff some data from Basic Rate (BR) Bluetooth Classic
- connections.
- .
- This package contains the debugging files used to investigate problems with
- the ubertooth library.
 
 Package: ubertooth-firmware
 Architecture: all
@@ -100,7 +84,7 @@ Description: Source code for the Ubertooth firmware
 
 Package: ubertooth
 Architecture: any
-Depends: libubertooth0 (= ${binary:Version}),
+Depends: libubertooth1 (= ${binary:Version}),
          ${shlibs:Depends},
          ${misc:Depends},
          python,
