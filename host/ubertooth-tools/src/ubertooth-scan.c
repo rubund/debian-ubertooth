@@ -32,19 +32,19 @@
 #include <sys/ioctl.h>
 
 #include "ubertooth.h"
+#include "ubertooth_callback.h"
 #include <btbb.h>
 #include <getopt.h>
-
-extern int max_ac_errors;
 
 static void usage()
 {
 	printf("ubertooth-scan - active(bluez) device scan and inquiry supported by Ubertooth\n");
 	printf("Usage:\n");
 	printf("\t-h this Help\n");
-	printf("\t-U<0-7> set ubertooth device to use\n");
-	printf("\t-s hci Scan - perform HCI scan\n");
+	printf("\t-U<0-7> set Ubertooth device to use\n");
 	printf("\t-t scan Time (seconds) - length of time to sniff packets. [Default: 20s]\n");
+	printf("\t-e max_ac_errors (default: %d, range: 0-4)\n", max_ac_errors);
+	printf("\t-s hci Scan - perform the equivalent of 'hcitool scan'\n");
 	printf("\t-x eXtended scan - retrieve additional information about target devices\n");
 	printf("\t-b Bluetooth device (hci0)\n");
 }
@@ -61,7 +61,7 @@ void extra_info(int dd, int dev_id, bdaddr_t* bdaddr)
 	struct hci_dev_info di;
 	struct hci_conn_info_req *cr;
 	int i, cc = 0;
-	
+
 	if (hci_devinfo(dev_id, &di) < 0) {
 		perror("Can't get device info");
 		exit(1);
@@ -156,28 +156,43 @@ void extra_info(int dd, int dev_id, bdaddr_t* bdaddr)
 		printf("AFH disabled.\n");
 	}
 	free(cr);
-	
+
 	if (cc) {
 		usleep(10000);
 		hci_disconnect(dd, handle, HCI_OE_USER_ENDED_CONNECTION, 10000);
 	}
 }
 
+/* For a given BD_ADDR, print address, name and class */
+void print_name_and_class(int dev_handle, int dev_id, bdaddr_t *bdaddr,
+						  char* printable_addr, uint8_t extended)
+{
+	char name[248] = { 0 };
+
+	if (hci_read_remote_name(dev_handle, bdaddr, sizeof(name), name, 0) < 0)
+			strcpy(name, "[unknown]");
+
+	printf("%s\t%s\n", printable_addr, name);
+	if (extended)
+		extra_info(dev_handle, dev_id, bdaddr);
+}
+
+
 int main(int argc, char *argv[])
 {
-    inquiry_info *ii = NULL;
-	int i, opt, dev_id, sock, len, flags, max_rsp, num_rsp, lap, timeout = 20;
-	uint8_t extended = 0;
+	inquiry_info *ii = NULL;
+	int r, i, rv, opt, dev_id, dev_handle, len, flags;
+	int max_rsp, num_rsp, lap, timeout = 20;
+	uint8_t uap, extended = 0;
 	uint8_t scan = 0;
 	char ubertooth_device = -1;
 	char *bt_dev = "hci0";
-    char addr[19] = { 0 };
-    char name[248] = { 0 };
-	struct libusb_device_handle *devh = NULL;
-	btbb_piconet *pn;
+	char addr[19] = { 0 };
+	ubertooth_t* ut = NULL;
+	btbb_piconet* pn;
 	bdaddr_t bdaddr;
 
-	while ((opt=getopt(argc,argv,"hU:t:xsb:")) != EOF) {
+	while ((opt=getopt(argc,argv,"hU:t:e:xsb:")) != EOF) {
 		switch(opt) {
 		case 'U':
 			ubertooth_device = atoi(optarg);
@@ -192,6 +207,9 @@ int main(int argc, char *argv[])
 		case 't':
 			timeout = atoi(optarg);
 			break;
+		case 'e':
+			max_ac_errors = atoi(optarg);
+			break;
 		case 'x':
 			extended = 1;
 			break;
@@ -205,74 +223,103 @@ int main(int argc, char *argv[])
 		}
 	}
 
-    dev_id = hci_devid(bt_dev);
+	dev_id = hci_devid(bt_dev);
 	if (dev_id < 0) {
-		printf("error: No Bluetooth device found. Do you have a Bluetooth dongle?\n");
+		printf("error: Unable to find %s (%d)\n", bt_dev, dev_id);
 		return 1;
 	}
 
-	sock = hci_open_dev( dev_id );
-	if (sock < 0) {
-		perror("problem opening socket");
+	dev_handle = hci_open_dev( dev_id );
+	if (dev_handle < 0) {
+		perror("HCI device open failed");
 		return 1;
 	}
 
-	devh = ubertooth_start(ubertooth_device);
-	if (devh == NULL) {
+	ut = ubertooth_start(ubertooth_device);
+	if (ut == NULL) {
 		usage();
 		return 1;
 	}
+	rv = ubertooth_check_api(ut);
+	if (rv < 0)
+		return 1;
+
 	/* Set sweep mode - otherwise AFH map is useless */
-	cmd_set_channel(devh, 9999);
+	cmd_set_channel(ut->devh, 9999);
+
+	/* Clean up on exit. */
+	register_cleanup_handler(ut, 0);
 
 	if (scan) {
+		/* Equivalent to "hcitool scan" */
+		printf("HCI scan\n");
 		len  = 8;
 		max_rsp = 255;
 		flags = IREQ_CACHE_FLUSH;
 		ii = (inquiry_info*)malloc(max_rsp * sizeof(inquiry_info));
-		
+
 		num_rsp = hci_inquiry(dev_id, len, max_rsp, NULL, &ii, flags);
 		if( num_rsp < 0 )
 			perror("hci_inquiry");
-	
-		/* Equivalent to "hcitool scan" */
-		printf("HCI scan\n");
+
 		for (i = 0; i < num_rsp; i++) {
 			ba2str(&(ii+i)->bdaddr, addr);
-			memset(name, 0, sizeof(name));
-			if (hci_read_remote_name(sock, &(ii+i)->bdaddr, sizeof(name), 
-			name, 0) < 0)
-				strcpy(name, "[unknown]");
-			printf("%s  %s\n", addr, name);
+			print_name_and_class(dev_handle, dev_id, &(ii+i)->bdaddr, addr,
+			                     extended);
 		}
 		free(ii);
 	}
 
 	/* Now find hidden piconets with Ubertooth */
 	printf("\nUbertooth scan\n");
-	btbb_init_survey();
-	rx_live(devh, NULL, timeout);
-	ubertooth_stop(devh);
 
+	btbb_init(max_ac_errors);
+	btbb_init_survey();
+
+	if (timeout)
+		ubertooth_set_timeout(ut, timeout);
+
+	// init USB transfer
+	r = ubertooth_bulk_init(ut);
+	if (r < 0)
+		return r;
+
+	r = ubertooth_bulk_thread_start();
+	if (r < 0)
+		return r;
+
+	// tell ubertooth to send packets
+	r = cmd_rx_syms(ut->devh);
+	if (r < 0)
+		return r;
+
+	// receive and process each packet
+	while(!ut->stop_ubertooth) {
+		ubertooth_bulk_receive(ut, cb_scan, NULL);
+	}
+
+	ubertooth_bulk_thread_stop();
+
+	ubertooth_stop(ut);
+
+	printf("\nScan results:\n");
 	while((pn=btbb_next_survey_result()) != NULL) {
 		lap = btbb_piconet_get_lap(pn);
 		if (btbb_piconet_get_flag(pn, BTBB_UAP_VALID)) {
-			lap = btbb_piconet_get_lap(pn);
-			sprintf(addr, "00:00:%02X:%02X:%02X:%02X", btbb_piconet_get_uap(pn),
-					(lap >> 16) & 0xFF, (lap >> 8) & 0xFF, lap & 0xFF);
+			uap = btbb_piconet_get_uap(pn);
+			sprintf(addr, "00:00:%02X:%02X:%02X:%02X", uap,
+			        (lap >> 16) & 0xFF, (lap >> 8) & 0xFF, lap & 0xFF);
 			str2ba(addr, &bdaddr);
-			memset(name, 0, sizeof(name));
-			if (hci_read_remote_name(sock, &bdaddr, sizeof(name), name, 0) < 0)
-				strcpy(name, "[unknown]");
-			printf("%s  %s\n", addr, name);
-			if (extended)
-				extra_info(sock, dev_id, &bdaddr);
+			/* Printable version showing that the NAP is unknown */
+			sprintf(addr, "??:??:%02X:%02X:%02X:%02X", uap,
+			        (lap >> 16) & 0xFF, (lap >> 8) & 0xFF, lap & 0xFF);
+			print_name_and_class(dev_handle, dev_id, &bdaddr, addr, extended);
 		} else
-			printf("00:00:00:%02X:%02X:%02X\n",
-				   (lap >> 16) & 0xFF, (lap >> 8) & 0xFF, lap & 0xFF);
+			printf("??:??:??:%02X:%02X:%02X\n", (lap >> 16) & 0xFF,
+			       (lap >> 8) & 0xFF, lap & 0xFF);
 		btbb_print_afh_map(pn);
 	}
 
-    close( sock );
-    return 0;
+	close(dev_handle);
+	return 0;
 }

@@ -34,17 +34,8 @@ extern "C" {
 	#include <ubertooth.h>
 }
 
-#ifdef NUM_BANKS
-#undef NUM_BANKS
-#endif
-#ifdef BANK_LEN
-#undef BANK_LEN
-#endif
-
 /* BANK_LEN must be >= AC_LEN */
 #define AC_LEN    72
-#define NUM_BANKS 10
-#define BANK_LEN  400
 
 #define USE_PACKETSOURCE_UBERTOOTH
 
@@ -104,31 +95,21 @@ protected:
 	// Named USB interface
 	string usb_dev;
 
-	struct libusb_device_handle* devh;
-
 	// FD pipes
 	int fake_fd[2];
 
 	// Packet storage, locked with packet_lock
 	vector<btbb_packet *> packet_queue;
-    
+
 	// Pending packet, locked with packet_lock
 	int pending_packet;
 
 	// Error from thread
 	string thread_error;
 
-	char symbols[NUM_BANKS][BANK_LEN];
-	int bank;
-	uint8_t rx_buf1[BUFFER_SIZE];
-	uint8_t rx_buf2[BUFFER_SIZE];
+	ubertooth_t* ut;
 
 	unsigned int channel;
-
-	uint8_t *empty_buf;
-	uint8_t *full_buf;
-	bool really_full;
-	struct libusb_transfer *rx_xfer;
 
 	pthread_mutex_t packet_lock;
 
@@ -143,9 +124,9 @@ protected:
 	void decode_pkt(btbb_packet*, btbb_piconet*);
 
 
-	friend void enqueue(PacketSource_Ubertooth *, btbb_packet *);
-	friend void cb_xfer(struct libusb_transfer *);
-	friend void *ubertooth_cap_thread(void *);
+	friend void enqueue(PacketSource_Ubertooth*, btbb_packet*);
+	friend void cb_xfer(struct libusb_transfer*);
+	friend void* ubertooth_cap_thread(void*);
 };
 
 #endif

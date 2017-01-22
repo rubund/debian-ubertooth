@@ -1,7 +1,7 @@
 /*
- * Copyright 2014 Dominic Spill
+ * Copyright 2015 Hannes Ellinger
  *
- * This file is part of Ubertooth.
+ * This file is part of Project Ubertooth.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,5 +19,18 @@
  * Boston, MA 02110-1301, USA.
  */
 
-extern const char btbb_version[];
-extern const char btbb_release[];
+#ifndef __UBERTOOTH_RSSI_H
+#define __UBERTOOTH_RSSI_H
+
+#include "inttypes.h"
+
+int8_t rssi_max;
+int8_t rssi_min;
+uint8_t rssi_count;
+
+void rssi_reset(void);
+void rssi_add(int8_t v);
+void rssi_iir_update(uint16_t channel);
+int8_t rssi_get_avg(uint16_t channel);
+
+#endif

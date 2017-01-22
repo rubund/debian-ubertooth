@@ -1,5 +1,5 @@
 /*
- * Copyright 2010, 2011 Michael Ossmann
+ * Copyright 2012-2016 Michael Ryan
  *
  * This file is part of Project Ubertooth.
  *
@@ -20,20 +20,13 @@
  */
 
 #include "ubertooth.h"
+#include "ubertooth_callback.h"
 #include <ctype.h>
 #include <err.h>
 #include <getopt.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-
-#ifdef ENABLE_PCAP
-#include <pcap.h>
-extern pcap_t *pcap_dumpfile;
-extern pcap_dumper_t *dumper;
-#endif // ENABLE_PCAP
-
-struct libusb_device_handle *devh = NULL;
 
 int convert_mac_address(char *s, uint8_t *o) {
 	int i;
@@ -89,10 +82,8 @@ static void usage(void)
 	printf("\n");
 	printf("    Misc:\n");
 	printf("\t-r<filename> capture packets to PCAPNG file\n");
-#ifdef ENABLE_PCAP
 	printf("\t-q<filename> capture packets to PCAP file (DLT_BLUETOOTH_LE_LL_WITH_PHDR)\n");
 	printf("\t-c<filename> capture packets to PCAP file (DLT_PPI)\n");
-#endif
 	printf("\t-A<index> advertising channel index (default 37)\n");
 	printf("\t-v[01] verify CRC mode, get status or enable/disable\n");
 	printf("\t-x<n> allow n access address offenses (default 32)\n");
@@ -112,6 +103,7 @@ int main(int argc, char *argv[])
 	int do_target;
 	enum jam_modes jam_mode = JAM_NONE;
 	char ubertooth_device = -1;
+	ubertooth_t* ut = ubertooth_init();
 
 	btle_options cb_opts = { .allowed_access_address_errors = 32 };
 
@@ -145,8 +137,8 @@ int main(int argc, char *argv[])
 			ubertooth_device = atoi(optarg);
 			break;
 		case 'r':
-			if (!h_pcapng_le) {
-				if (lell_pcapng_create_file(optarg, "Ubertooth", &h_pcapng_le)) {
+			if (!ut->h_pcapng_le) {
+				if (lell_pcapng_create_file(optarg, "Ubertooth", &ut->h_pcapng_le)) {
 					err(1, "lell_pcapng_create_file: ");
 				}
 			}
@@ -154,10 +146,9 @@ int main(int argc, char *argv[])
 				printf("Ignoring extra capture file: %s\n", optarg);
 			}
 			break;
-#ifdef ENABLE_PCAP
 		case 'q':
-			if (!h_pcap_le) {
-				if (lell_pcap_create_file(optarg, &h_pcap_le)) {
+			if (!ut->h_pcap_le) {
+				if (lell_pcap_create_file(optarg, &ut->h_pcap_le)) {
 					err(1, "lell_pcap_create_file: ");
 				}
 			}
@@ -166,8 +157,8 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'c':
-			if (!h_pcap_le) {
-				if (lell_pcap_ppi_create_file(optarg, 0, &h_pcap_le)) {
+			if (!ut->h_pcap_le) {
+				if (lell_pcap_ppi_create_file(optarg, 0, &ut->h_pcap_le)) {
 					err(1, "lell_pcap_ppi_create_file: ");
 				}
 			}
@@ -175,7 +166,6 @@ int main(int argc, char *argv[])
 				printf("Ignoring extra capture file: %s\n", optarg);
 			}
 			break;
-#endif
 		case 'v':
 			if (optarg)
 				do_crc = atoi(optarg) ? 1 : 0;
@@ -229,14 +219,19 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	devh = ubertooth_start(ubertooth_device);
-	if (devh == NULL) {
+
+	r = ubertooth_connect(ut, ubertooth_device);
+	if (r < 0) {
 		usage();
 		return 1;
 	}
 
+	r = ubertooth_check_api(ut);
+	if (r < 0)
+		return 1;
+
 	/* Clean up on exit. */
-	register_cleanup_handler(devh);
+	register_cleanup_handler(ut, 1);
 
 	if (do_follow && do_promisc) {
 		printf("Error: must choose either -f or -p, one or the other pal\n");
@@ -244,14 +239,14 @@ int main(int argc, char *argv[])
 	}
 
 	if (do_follow || do_promisc) {
-		usb_pkt_rx pkt;
+		usb_pkt_rx rx;
 
-		int r = cmd_set_jam_mode(devh, jam_mode);
+		r = cmd_set_jam_mode(ut->devh, jam_mode);
 		if (jam_mode != JAM_NONE && r != 0) {
 			printf("Jamming not supported\n");
 			return 1;
 		}
-		cmd_set_modulation(devh, MOD_BT_LOW_ENERGY);
+		cmd_set_modulation(ut->devh, MOD_BT_LOW_ENERGY);
 
 		if (do_follow) {
 			u16 channel;
@@ -261,42 +256,44 @@ int main(int argc, char *argv[])
 				channel = 2426;
 			else
 				channel = 2480;
-			cmd_set_channel(devh, channel);
-			cmd_btle_sniffing(devh, 2);
+			cmd_set_channel(ut->devh, channel);
+			cmd_btle_sniffing(ut->devh, 2);
 		} else {
-			cmd_btle_promisc(devh);
+			cmd_btle_promisc(ut->devh);
 		}
 
 		while (1) {
-			int r = cmd_poll(devh, &pkt);
+			int r = cmd_poll(ut->devh, &rx);
 			if (r < 0) {
 				printf("USB error\n");
 				break;
 			}
-			if (r == sizeof(usb_pkt_rx))
-				cb_btle(&cb_opts, &pkt, 0);
+			if (r == sizeof(usb_pkt_rx)) {
+				fifo_push(ut->fifo, &rx);
+				cb_btle(ut, &cb_opts);
+			}
 			usleep(500);
 		}
-		ubertooth_stop(devh);
+		ubertooth_stop(ut);
 	}
 
 	if (do_get_aa) {
-		access_address = cmd_get_access_address(devh);
+		access_address = cmd_get_access_address(ut->devh);
 		printf("Access address: %08x\n", access_address);
 		return 0;
 	}
 
 	if (do_set_aa) {
-		cmd_set_access_address(devh, access_address);
+		cmd_set_access_address(ut->devh, access_address);
 		printf("access address set to: %08x\n", access_address);
 	}
 
 	if (do_crc >= 0) {
 		int r;
 		if (do_crc == 2) {
-			r = cmd_get_crc_verify(devh);
+			r = cmd_get_crc_verify(ut->devh);
 		} else {
-			cmd_set_crc_verify(devh, do_crc);
+			cmd_set_crc_verify(ut->devh, do_crc);
 			r = do_crc;
 		}
 		printf("CRC: %sverify\n", r ? "" : "DO NOT ");
@@ -310,13 +307,13 @@ int main(int argc, char *argv[])
 			channel = 2426;
 		else
 			channel = 2480;
-		cmd_set_channel(devh, channel);
+		cmd_set_channel(ut->devh, channel);
 
-		cmd_btle_slave(devh, mac_address);
+		cmd_btle_slave(ut->devh, mac_address);
 	}
 
 	if (do_target) {
-		r = cmd_btle_set_target(devh, mac_address);
+		r = cmd_btle_set_target(ut->devh, mac_address);
 		if (r == 0) {
 			int i;
 			printf("target set to: ");
@@ -325,6 +322,10 @@ int main(int argc, char *argv[])
 			printf("%02x\n", mac_address[5]);
 		}
 	}
+
+	if (!(do_follow || do_promisc || do_get_aa || do_set_aa ||
+				do_crc >= 0 || do_slave_mode || do_target))
+		usage();
 
 	return 0;
 }

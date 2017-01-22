@@ -21,7 +21,7 @@
  */
 
 /*
-	LPCUSB, an USB device driver for LPC microcontrollers	
+	LPCUSB, an USB device driver for LPC microcontrollers
 	Copyright (C) 2006 Bertrik Sikken (bertrik@sikken.nl)
 
 	Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@
 	THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
 	IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
 	OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-	IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, 
+	IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
 	INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
 	NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
 	DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
@@ -49,7 +49,9 @@
 
 #include "usbapi.h"
 #include "usbhw_lpc.h"
+#include "ubertooth.h"
 #include "ubertooth_usb.h"
+#include <string.h>
 
 #ifdef UBERTOOTH_ZERO
 #define ID_VENDOR 0x1D50
@@ -77,12 +79,12 @@
  * atomicity of the operations on head and tail.
  */
 
-const u8 abDescriptors[] = {
+static u8 abDescriptors[] = {
 
 /* Device descriptor */
-	0x12,              		
-	DESC_DEVICE,       		
-	LE_WORD(0x0200),		// bcdUSB	
+	0x12,
+	DESC_DEVICE,
+	LE_WORD(0x0200),		// bcdUSB
 	0xFF,              		// bDeviceClass
 	0x00,              		// bDeviceSubClass
 	0x00,              		// bDeviceProtocol
@@ -106,8 +108,8 @@ const u8 abDescriptors[] = {
 	0x6e,  					// bMaxPower (220mA)
 
 // interface
-	0x09,   				
-	DESC_INTERFACE, 
+	0x09,
+	DESC_INTERFACE,
 	0x00,  		 			// bInterfaceNumber
 	0x00,   				// bAlternateSetting
 	0x02,   				// bNumEndPoints
@@ -117,20 +119,20 @@ const u8 abDescriptors[] = {
 	0x00,   				// iInterface
 
 // bulk in
-	0x07,   		
-	DESC_ENDPOINT,   		
+	0x07,
+	DESC_ENDPOINT,
 	BULK_IN_EP,				// bEndpointAddress
 	0x02,   				// bmAttributes = BULK
 	LE_WORD(MAX_PACKET_SIZE),// wMaxPacketSize
-	0,						// bInterval   		
+	0,						// bInterval
 
 // bulk out
-	0x07,   		
-	DESC_ENDPOINT,   		
+	0x07,
+	DESC_ENDPOINT,
 	BULK_OUT_EP,			// bEndpointAddress
 	0x02,   				// bmAttributes = BULK
 	LE_WORD(MAX_PACKET_SIZE),// wMaxPacketSize
-	0,						// bInterval 
+	0,						// bInterval
 
 // string descriptors
 	0x04,
@@ -154,14 +156,18 @@ const u8 abDescriptors[] = {
 	'r', 0, 'x', 0, 't', 0, 'x', 0,
 
 	// serial number string
-	0x12,
+	0x42,
 	DESC_STRING,
+	'0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0,
+	'0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0,
+	'0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0,
 	'0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '0', 0, '1', 0,
 
 	// terminator
 	0
 };
 
+#define USB_SERIAL_OFFSET 178
 
 u8 abVendorReqData[258];
 
@@ -187,15 +193,35 @@ BOOL usb_vendor_request_handler(TSetupPacket *pSetup, int *piLen, u8 **ppbData)
 	return (BOOL) (rv==1);
 }
 
+
+void set_serial_descriptor(u8 *descriptors) {
+	u8 buf[17], *desc, nibble;
+	int len, i;
+	get_device_serial(buf, &len);
+	if(buf[0] == 0) { /* IAP success */
+		desc = descriptors + USB_SERIAL_OFFSET;
+		for(i=0; i<16; i++) {
+			nibble  = (buf[i+1]>>4) & 0xF;
+			desc[i * 4] = (nibble > 9) ? ('a' + nibble - 10) : ('0' + nibble);
+			desc[1+ i * 4] = 0;
+			nibble = buf[i+1]&0xF;
+			desc[2 + i * 4] = (nibble > 9) ? ('a' + nibble - 10) : ('0' + nibble);
+			desc[3 + i * 4] = 0;
+		}
+	}
+}
+
 int ubertooth_usb_init(VendorRequestHandler *vendor_req_handler)
 {
 	// initialise stack
 	USBInit();
+
+	set_serial_descriptor(abDescriptors);
 	
 	// register device descriptors
 	USBRegisterDescriptors(abDescriptors);
 
-	// Request handler 
+	// Request handler
 	v_req_handler = vendor_req_handler;
 
 	// override standard request handler
@@ -222,13 +248,14 @@ usb_pkt_rx fifo[128];
 volatile u32 head = 0;
 volatile u32 tail = 0;
 
-void queue_init()
+void queue_init(void)
 {
 	head = 0;
 	tail = 0;
+	memset(fifo, 0, sizeof(fifo));
 }
 
-usb_pkt_rx *usb_enqueue()
+usb_pkt_rx *usb_enqueue(void)
 {
 	u8 h = head & 0x7F;
 	u8 t = tail & 0x7F;
@@ -241,10 +268,10 @@ usb_pkt_rx *usb_enqueue()
 
 	++tail;
 	return &fifo[t];
-	
+
 }
 
-usb_pkt_rx *dequeue()
+usb_pkt_rx *dequeue(void)
 {
 	u8 h = head & 0x7F;
 	u8 t = tail & 0x7F;
@@ -263,7 +290,7 @@ u32 last_usb_pkt = 0;  // for keep alive packets
 
 int dequeue_send(u32 clkn)
 {
-	usb_pkt_rx *pkt = dequeue(&pkt);
+	usb_pkt_rx *pkt = dequeue();
 	if (pkt != NULL) {
 		last_usb_pkt = clkn;
 		USBHwEPWrite(BULK_IN_EP, (u8 *)pkt, sizeof(usb_pkt_rx));

@@ -30,7 +30,7 @@ else (LIBBTBB_INCLUDE_DIR AND LIBBTBB_LIBRARIES)
     ${LIBBTBB_INCLUDE_DIR}
   )
 
-  set(libbtbb_library_names btbb)
+  set(libbtbb_library_names btbb btbb-static)
 
   FIND_LIBRARY(LIBBTBB_LIBRARIES
     NAMES ${libbtbb_library_names}
@@ -53,6 +53,3 @@ else (LIBBTBB_INCLUDE_DIR AND LIBBTBB_LIBRARIES)
   MARK_AS_ADVANCED(LIBBTBB_INCLUDE_DIR LIBBTBB_LIBRARIES)
 
 endif (LIBBTBB_INCLUDE_DIR AND LIBBTBB_LIBRARIES)
-
-INCLUDE(CheckFunctionExists)
-CHECK_FUNCTION_EXISTS("btbb_pcap_create_file" HAVE_BTBB_PCAP)

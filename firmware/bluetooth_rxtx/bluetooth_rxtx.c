@@ -25,6 +25,10 @@
 #include "ubertooth.h"
 #include "ubertooth_usb.h"
 #include "ubertooth_interface.h"
+#include "ubertooth_rssi.h"
+#include "ubertooth_cs.h"
+#include "ubertooth_dma.h"
+#include "ubertooth_clock.h"
 #include "bluetooth.h"
 #include "bluetooth_le.h"
 #include "cc2400_rangetest.h"
@@ -37,56 +41,40 @@
 const char compile_info[] =
 	"ubertooth " GIT_REVISION " (" COMPILE_BY "@" COMPILE_HOST ") " TIMESTAMP;
 
-/*
- * CLK100NS is a free-running clock with a period of 100 ns.  It resets every
- * 2^15 * 10^5 cycles (about 5.5 minutes) - computed from clkn and timer0 (T0TC)
- *
- * clkn is the native (local) clock as defined in the Bluetooth specification.
- * It advances 3200 times per second.  Two clkn periods make a Bluetooth time
- * slot.
- */
+/* hopping stuff */
+volatile uint8_t  hop_mode = HOP_NONE;
+volatile uint8_t  do_hop = 0;                  // set by timer interrupt
+volatile uint16_t channel = 2441;
+volatile uint16_t hop_direct_channel = 0;      // for hopping directly to a channel
+volatile uint16_t hop_timeout = 158;
+volatile uint16_t requested_channel = 0;
+volatile uint16_t saved_request = 0;
 
-volatile u32 clkn;                       // clkn 3200 Hz counter
-#define CLK100NS (3125*(clkn & 0xfffff) + T0TC)
-#define LE_BASECLK (12500)               // 1.25 ms in units of 100ns
+/* bulk USB stuff */
+volatile uint8_t  idle_buf_clkn_high = 0;
+volatile uint32_t idle_buf_clk100ns = 0;
+volatile uint16_t idle_buf_channel = 0;
+volatile uint8_t  dma_discard = 0;
+volatile uint8_t  status = 0;
 
-#define HOP_NONE      0
-#define HOP_SWEEP     1
-#define HOP_BLUETOOTH 2
-#define HOP_BTLE      3
-#define HOP_DIRECT    4
+/* operation mode */
+volatile uint8_t mode = MODE_IDLE;
+volatile uint8_t requested_mode = MODE_IDLE;
+volatile uint8_t jam_mode = JAM_NONE;
+volatile uint8_t ego_mode = EGO_FOLLOW;
 
-#define CS_THRESHOLD_DEFAULT (uint8_t)(-120)
-#define CS_HOLD_TIME  2                     // min pkts to send on trig (>=1)
-u8 hop_mode = HOP_NONE;
-volatile u8 do_hop = 0;                     // set by timer interrupt
+volatile uint8_t modulation = MOD_BT_BASIC_RATE;
 
-u8 cs_no_squelch = 0;                       // rx all packets if set
-int8_t cs_threshold_req=CS_THRESHOLD_DEFAULT; // requested CS threshold in dBm
-int8_t cs_threshold_cur=CS_THRESHOLD_DEFAULT; // current CS threshold in dBm
-volatile u8 cs_trigger;                     // set by intr on P2.2 falling (CS)
-volatile u8 keepalive_trigger;              // set by timer 1/s
-volatile u32 cs_timestamp;                  // CLK100NS at time of cs_trigger
-u16 hop_direct_channel = 0;                 // for hopping directly to a channel
-int clock_trim = 0;                         // to counteract clock drift
-volatile u32 idle_buf_clkn_high;
-volatile u32 active_buf_clkn_high;
-volatile u32 idle_buf_clk100ns;
-volatile u32 active_buf_clk100ns;
-volatile u16 idle_buf_channel = 0;
-volatile u16 active_buf_channel = 0;
-u8 slave_mac_address[6] = { 0, };
+/* specan stuff */
+volatile uint16_t low_freq = 2400;
+volatile uint16_t high_freq = 2483;
+volatile int8_t rssi_threshold = -30;  // -54dBm - 30 = -84dBm
 
-/* DMA buffers */
-u8 rxbuf1[DMA_SIZE];
-u8 rxbuf2[DMA_SIZE];
+/* Generic TX stuff */
+generic_tx_packet tx_pkt;
 
-/*
- * The active buffer is the one with an active DMA transfer.
- * The idle buffer is the one we can read/write between transfers.
- */
-u8 *active_rxbuf = &rxbuf1[0];
-u8 *idle_rxbuf = &rxbuf2[0];
+/* le stuff */
+uint8_t slave_mac_address[6] = { 0, };
 
 le_state_t le = {
 	.access_address = 0x8e89bed6,           // advertising channel access address
@@ -94,7 +82,7 @@ le_state_t le = {
 	.syncl = 0x9171,
 	.crc_init  = 0x555555,                  // advertising channel CRCInit
 	.crc_init_reversed = 0xAAAAAA,
-	.crc_verify = 1,
+	.crc_verify = 0,
 
 	.link_state = LINK_INACTIVE,
 	.conn_epoch = 0,
@@ -131,125 +119,12 @@ data_cb_t data_cb = NULL;
 typedef void (*packet_cb_t)(u8 *);
 packet_cb_t packet_cb = NULL;
 
-/* Moving average (IIR) of average RSSI of packets as scaled integers (x256). */
-int16_t rssi_iir[79] = {0};
-#define RSSI_IIR_ALPHA 3       // 3/256 = .012
-
-/*
- * CLK_TUNE_TIME is the duration in units of 100 ns that we reserve for tuning
- * the radio while frequency hopping.  We start the tuning process
- * CLK_TUNE_TIME * 100 ns prior to the start of an upcoming time slot.
-*/
-#define CLK_TUNE_TIME   2250
-
 /* Unpacked symbol buffers (two rxbufs) */
 char unpacked[DMA_SIZE*8*2];
 
-volatile u8 mode = MODE_IDLE;
-volatile u8 requested_mode = MODE_IDLE;
-volatile u8 jam_mode = JAM_NONE;
-volatile u8 ego_mode = 0;
-volatile u8 modulation = MOD_BT_BASIC_RATE;
-volatile u16 channel = 2441;
-volatile u16 requested_channel = 0;
-volatile u16 saved_request = 0;
-volatile u16 low_freq = 2400;
-volatile u16 high_freq = 2483;
-volatile int8_t rssi_threshold = -30;  // -54dBm - 30 = -84dBm
-
-/* DMA linked list items */
-typedef struct {
-	u32 src;
-	u32 dest;
-	u32 next_lli;
-	u32 control;
-} dma_lli;
-
-dma_lli rx_dma_lli1;
-dma_lli rx_dma_lli2;
-
-dma_lli le_dma_lli[11]; // 11 x 4 bytes
-
-/* rx terminal count and error interrupt counters */
-volatile u32 rx_tc;
-volatile u32 rx_err;
-
-/* status information byte */
-volatile u8 status = 0;
-
-#define DMA_OVERFLOW  0x01
-#define DMA_ERROR     0x02
-#define FIFO_OVERFLOW 0x04
-#define CS_TRIGGER    0x08
-#define RSSI_TRIGGER  0x10
-
-/*
- * RSSI
- */
-int8_t rssi_max;
-int8_t rssi_min;
-uint8_t rssi_count = 0;
-int32_t rssi_sum = 0;
-
-static void rssi_reset(void)
+static int enqueue(uint8_t type, uint8_t* buf)
 {
-	rssi_count = 0;
-	rssi_sum = 0;
-	rssi_max = INT8_MIN;
-	rssi_min = INT8_MAX;
-}
-
-static void rssi_add(int8_t v)
-{
-	rssi_max = (v > rssi_max) ? v : rssi_max;
-	rssi_min = (v < rssi_min) ? v : rssi_min;
-	rssi_sum += ((int32_t)v * 256);  // scaled int math (x256)
-	rssi_count += 1;
-}
-
-/* For sweep mode, update IIR per channel. Otherwise, use single value. */
-static void rssi_iir_update(void)
-{
-	int i;
-	int32_t avg;
-	int32_t rssi_iir_acc;
-
-	/* Use array to track 79 Bluetooth channels, or just first
-	 * slot of array if not sweeping. */
-	if (hop_mode > 0)
-		i = channel - 2402;
-	else
-		i = 0;
-
-	// IIR using scaled int math (x256)
-	if (rssi_count != 0)
-		avg = (rssi_sum  + 128) / rssi_count;
-	else
-		avg = 0; // really an error
-	rssi_iir_acc = rssi_iir[i] * (256-RSSI_IIR_ALPHA);
-	rssi_iir_acc += avg * RSSI_IIR_ALPHA;
-	rssi_iir[i] = (int16_t)((rssi_iir_acc + 128) / 256);
-}
-
-#define CS_SAMPLES_1 1
-#define CS_SAMPLES_2 2
-#define CS_SAMPLES_4 3
-#define CS_SAMPLES_8 4
-/* Set CC2400 carrier sense threshold and store value to
- * global. CC2400 RSSI is determined by 54dBm + level. CS threshold is
- * in 4dBm steps, so the provided level is rounded to the nearest
- * multiple of 4 by adding 56. Useful range is -100 to -20. */
-static void cs_threshold_set(int8_t level, u8 samples)
-{
-	level = MIN(MAX(level,-120),(-20));
-	cc2400_set(RSSI, (uint8_t)((level + 56) & (0x3f << 2)) | (samples&3));
-	cs_threshold_cur = level;
-	cs_no_squelch = (level <= -120);
-}
-
-static int enqueue(u8 type, u8 *buf)
-{
-	usb_pkt_rx *f = usb_enqueue();
+	usb_pkt_rx* f = usb_enqueue();
 
 	/* fail if queue is full */
 	if (f == NULL) {
@@ -264,37 +139,14 @@ static int enqueue(u8 type, u8 *buf)
 	} else {
 		f->clkn_high = idle_buf_clkn_high;
 		f->clk100ns = idle_buf_clk100ns;
+		f->channel = (uint8_t)((idle_buf_channel - 2402) & 0xff);
+		f->rssi_min = rssi_min;
+		f->rssi_max = rssi_max;
+		f->rssi_avg = rssi_get_avg(idle_buf_channel);
+		f->rssi_count = rssi_count;
 	}
-	f->channel = idle_buf_channel - 2402;
-	f->rssi_min = rssi_min;
-	f->rssi_max = rssi_max;
-	if (hop_mode != HOP_NONE)
-		f->rssi_avg = (int8_t)((rssi_iir[idle_buf_channel-2402] + 128)/256);
-	else
-		f->rssi_avg = (int8_t)((rssi_iir[0] + 128)/256);
-	f->rssi_count = rssi_count;
 
-	USRLED_SET;
-
-	// Unrolled copy of 50 bytes from buf to fifo
-	u32 *p1 = (u32 *)f->data;
-	u32 *p2 = (u32 *)buf;
-	p1[0] = p2[0];
-	p1[1] = p2[1];
-	p1[2] = p2[2];
-	p1[3] = p2[3];
-	p1[4] = p2[4];
-	p1[5] = p2[5];
-	p1[6] = p2[6];
-	p1[7] = p2[7];
-	p1[8] = p2[8];
-	p1[9] = p2[9];
-	p1[10] = p2[10];
-	p1[11] = p2[11];
-	/* Avoid gcc warning about strict-aliasing */
-	u16 *p3 = (u16 *)f->data;
-	u16 *p4 = (u16 *)buf;
-	p3[24] = p4[24];
+	memcpy(f->data, buf, DMA_SIZE);
 
 	f->status = status;
 	status = 0;
@@ -302,9 +154,9 @@ static int enqueue(u8 type, u8 *buf)
 	return 1;
 }
 
-int enqueue_with_ts(u8 type, u8 *buf, u32 ts)
+int enqueue_with_ts(uint8_t type, uint8_t* buf, uint32_t ts)
 {
-	usb_pkt_rx *f = usb_enqueue();
+	usb_pkt_rx* f = usb_enqueue();
 
 	/* fail if queue is full */
 	if (f == NULL) {
@@ -312,34 +164,16 @@ int enqueue_with_ts(u8 type, u8 *buf, u32 ts)
 		return 0;
 	}
 
+	f->pkt_type = type;
+
 	f->clkn_high = 0;
 	f->clk100ns = ts;
 
-	f->channel = channel - 2402;
+	f->channel = (uint8_t)((channel - 2402) & 0xff);
 	f->rssi_avg = 0;
 	f->rssi_count = 0;
 
-	USRLED_SET;
-
-	// Unrolled copy of 50 bytes from buf to fifo
-	u32 *p1 = (u32 *)f->data;
-	u32 *p2 = (u32 *)buf;
-	p1[0] = p2[0];
-	p1[1] = p2[1];
-	p1[2] = p2[2];
-	p1[3] = p2[3];
-	p1[4] = p2[4];
-	p1[5] = p2[5];
-	p1[6] = p2[6];
-	p1[7] = p2[7];
-	p1[8] = p2[8];
-	p1[9] = p2[9];
-	p1[10] = p2[10];
-	p1[11] = p2[11];
-	/* Avoid gcc warning about strict-aliasing */
-	u16 *p3 = (u16 *)f->data;
-	u16 *p4 = (u16 *)buf;
-	p3[24] = p4[24];
+	memcpy(f->data, buf, DMA_SIZE);
 
 	f->status = status;
 	status = 0;
@@ -347,55 +181,13 @@ int enqueue_with_ts(u8 type, u8 *buf, u32 ts)
 	return 1;
 }
 
-static void cs_threshold_calc_and_set(void)
+static int vendor_request_handler(uint8_t request, uint16_t* request_params, uint8_t* data, int* data_len)
 {
-	int8_t level;
-
-	/* If threshold is max/avg based (>0), reset here while rx is
-	 * off.  TODO - max-to-iir only works in SWEEP mode, where the
-	 * channel is known to be in the BT band, i.e., rssi_iir has a
-	 * value for it. */
-	if ((hop_mode > 0) && (cs_threshold_req > 0)) {
-		int8_t rssi = (int8_t)((rssi_iir[channel-2402] + 128)/256);
-		level = rssi - 54 + cs_threshold_req;
-	}
-	else {
-		level = cs_threshold_req;
-	}
-	cs_threshold_set(level, CS_SAMPLES_4);
-}
-
-/* CS comes from CC2400 GIO6, which is LPC P2.2, active low. GPIO
- * triggers EINT3, which could be used for other things (but is not
- * currently). TODO - EINT3 should be managed globally, not turned on
- * and off here. */
-static void cs_trigger_enable(void)
-{
-	cs_trigger = 0;
-	ISER0 = ISER0_ISE_EINT3;
-	IO2IntClr = PIN_GIO6;      // Clear pending
-	IO2IntEnF |= PIN_GIO6;     // Enable port 2.2 falling (CS active low)
-}
-
-static void cs_trigger_disable(void)
-{
-	IO2IntEnF &= ~PIN_GIO6;    // Disable port 2.2 falling (CS active low)
-	IO2IntClr = PIN_GIO6;      // Clear pending
-	ICER0 = ICER0_ICE_EINT3;
-	cs_trigger = 0;
-}
-
-static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int *data_len)
-{
-	u32 command[5];
-	u32 result[5];
-	u64 ac_copy;
-	int i; // loop counter
-	u32 clock;
-	int clock_offset;
-	u8 length; // string length
-	usb_pkt_rx *p = NULL;
-	u16 reg_val;
+	uint32_t clock;
+	size_t length; // string length
+	usb_pkt_rx* p = NULL;
+	uint16_t reg_val;
+	uint8_t i;
 
 	switch (request) {
 
@@ -405,6 +197,12 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 
 	case UBERTOOTH_RX_SYMBOLS:
 		requested_mode = MODE_RX_SYMBOLS;
+		*data_len = 0;
+		break;
+
+	case UBERTOOTH_TX_SYMBOLS:
+		hop_mode = HOP_BLUETOOTH;
+		requested_mode = MODE_TX_SYMBOLS;
 		*data_len = 0;
 		break;
 
@@ -457,14 +255,7 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		break;
 
 	case UBERTOOTH_GET_PARTNUM:
-		command[0] = 54; /* read part number */
-		iap_entry(command, result);
-		data[0] = result[0] & 0xFF; /* status */
-		data[1] = result[1] & 0xFF;
-		data[2] = (result[1] >> 8) & 0xFF;
-		data[3] = (result[1] >> 16) & 0xFF;
-		data[4] = (result[1] >> 24) & 0xFF;
-		*data_len = 5;
+		get_part_num(data, data_len);
 		break;
 
 	case UBERTOOTH_RESET:
@@ -472,26 +263,7 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		break;
 
 	case UBERTOOTH_GET_SERIAL:
-		command[0] = 58; /* read device serial number */
-		iap_entry(command, result);
-		data[0] = result[0] & 0xFF; /* status */
-		data[1] = result[1] & 0xFF;
-		data[2] = (result[1] >> 8) & 0xFF;
-		data[3] = (result[1] >> 16) & 0xFF;
-		data[4] = (result[1] >> 24) & 0xFF;
-		data[5] = result[2] & 0xFF;
-		data[6] = (result[2] >> 8) & 0xFF;
-		data[7] = (result[2] >> 16) & 0xFF;
-		data[8] = (result[2] >> 24) & 0xFF;
-		data[9] = result[3] & 0xFF;
-		data[10] = (result[3] >> 8) & 0xFF;
-		data[11] = (result[3] >> 16) & 0xFF;
-		data[12] = (result[3] >> 24) & 0xFF;
-		data[13] = result[4] & 0xFF;
-		data[14] = (result[4] >> 8) & 0xFF;
-		data[15] = (result[4] >> 16) & 0xFF;
-		data[16] = (result[4] >> 24) & 0xFF;
-		*data_len = 17;
+		get_device_serial(data, data_len);
 		break;
 
 #ifdef UBERTOOTH_ONE
@@ -595,23 +367,22 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 
 			/* CS threshold is mode-dependent. Update it after
 			 * possible mode change. TODO - kludgy. */
-			cs_threshold_calc_and_set();
+			cs_threshold_calc_and_set(channel);
 		}
 		break;
 
 	case UBERTOOTH_SET_ISP:
-		command[0] = 57;
-		iap_entry(command, result);
+		set_isp();
 		*data_len = 0; /* should never return */
 		break;
 
 	case UBERTOOTH_FLASH:
 		bootloader_ctrl = DFU_MODE;
-		reset();
+		requested_mode = MODE_RESET;
 		break;
 
 	case UBERTOOTH_SPECAN:
-		if (request_params[0] < 2049 || request_params[0] > 3072 || 
+		if (request_params[0] < 2049 || request_params[0] > 3072 ||
 				request_params[1] < 2049 || request_params[1] > 3072 ||
 				request_params[1] < request_params[0])
 			return 0;
@@ -621,10 +392,15 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		*data_len = 0;
 		break;
 
+	case UBERTOOTH_RX_GENERIC:
+		requested_mode = MODE_RX_GENERIC;
+		*data_len = 0;
+		break;
+
 	case UBERTOOTH_LED_SPECAN:
 		if (request_params[0] > 256)
 			return 0;
-		rssi_threshold = (int8_t)request_params[0];
+		rssi_threshold = 54 - request_params[0];
 		requested_mode = MODE_LED_SPECAN;
 		*data_len = 0;
 		break;
@@ -655,7 +431,7 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 
 	case UBERTOOTH_SET_SQUELCH:
 		cs_threshold_req = (int8_t)request_params[0];
-		cs_threshold_calc_and_set();
+		cs_threshold_calc_and_set(channel);
 		break;
 
 	case UBERTOOTH_GET_SQUELCH:
@@ -665,34 +441,52 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 
 	case UBERTOOTH_SET_BDADDR:
 		target.address = 0;
-		target.access_code = 0;
-		for(i=0; i < 8; i++) {
+		target.syncword = 0;
+		for(int i=0; i < 8; i++) {
 			target.address |= (uint64_t)data[i] << 8*i;
 		}
-		for(i=0; i < 8; i++) {
-			target.access_code |= (uint64_t)data[i+8] << 8*i;
+		for(int i=0; i < 8; i++) {
+			target.syncword |= (uint64_t)data[i+8] << 8*i;
 		}
+		precalc();
 		break;
 
 	case UBERTOOTH_START_HOPPING:
-		clock_offset = 0;
-		for(i=0; i < 4; i++) {
-			clock_offset <<= 8;
-			clock_offset |= data[i];
+		clkn_offset = 0;
+		for(int i=0; i < 4; i++) {
+			clkn_offset <<= 8;
+			clkn_offset |= data[i];
 		}
-		clkn += clock_offset;
 		hop_mode = HOP_BLUETOOTH;
+		dma_discard = 1;
+		DIO_SSEL_SET;
+		clk100ns_offset = (data[4] << 8) | (data[5] << 0);
 		requested_mode = MODE_BT_FOLLOW;
+		break;
+
+	case UBERTOOTH_AFH:
+		hop_mode = HOP_AFH;
+		requested_mode = MODE_AFH;
+
+		for(int i=0; i < 10; i++) {
+			afh_map[i] = 0;
+		}
+		used_channels = 0;
+		afh_enabled = 1;
+		break;
+
+	case UBERTOOTH_HOP:
+		do_hop = 1;
 		break;
 
 	case UBERTOOTH_SET_CLOCK:
 		clock = data[0] | data[1] << 8 | data[2] << 16 | data[3] << 24;
 		clkn = clock;
-		cs_threshold_calc_and_set();
+		cs_threshold_calc_and_set(channel);
 		break;
 
 	case UBERTOOTH_SET_AFHMAP:
-		for(i=0; i < 10; i++) {
+		for(int i=0; i < 10; i++) {
 			afh_map[i] = data[i];
 		}
 		afh_enabled = 1;
@@ -700,7 +494,7 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		break;
 
 	case UBERTOOTH_CLEAR_AFHMAP:
-		for(i=0; i < 10; i++) {
+		for(int i=0; i < 10; i++) {
 			afh_map[i] = 0;
 		}
 		afh_enabled = 0;
@@ -709,10 +503,35 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 
 	case UBERTOOTH_GET_CLOCK:
 		clock = clkn;
-		for(i=0; i < 4; i++) {
+		for(int i=0; i < 4; i++) {
 			data[i] = (clock >> (8*i)) & 0xff;
 		}
 		*data_len = 4;
+		break;
+
+	case UBERTOOTH_TRIM_CLOCK:
+		clk100ns_offset = (data[0] << 8) | (data[1] << 0);
+		break;
+
+	case UBERTOOTH_FIX_CLOCK_DRIFT:
+		clk_drift_ppm += (int16_t)(data[0] << 8) | (data[1] << 0);
+
+		// Too slow
+		if (clk_drift_ppm < 0) {
+			clk_drift_correction = 320 / (uint16_t)(-clk_drift_ppm);
+			clkn_next_drift_fix = clkn_last_drift_fix + clk_drift_correction;
+		}
+		// Too fast
+		else if (clk_drift_ppm > 0) {
+			clk_drift_correction = 320 / clk_drift_ppm;
+			clkn_next_drift_fix = clkn_last_drift_fix + clk_drift_correction;
+		}
+		// Don't trim
+		else {
+			clk_drift_correction = 0;
+			clkn_next_drift_fix = 0;
+		}
+
 		break;
 
 	case UBERTOOTH_BTLE_SNIFFING:
@@ -723,11 +542,11 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		requested_mode = MODE_BT_FOLLOW_LE;
 
 		queue_init();
-		cs_threshold_calc_and_set();
+		cs_threshold_calc_and_set(channel);
 		break;
 
 	case UBERTOOTH_GET_ACCESS_ADDRESS:
-		for(i=0; i < 4; i++) {
+		for(int i=0; i < 4; i++) {
 			data[i] = (le.access_address >> (8*i)) & 0xff;
 		}
 		*data_len = 4;
@@ -777,7 +596,7 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		requested_mode = MODE_BT_PROMISC_LE;
 
 		queue_init();
-		cs_threshold_calc_and_set();
+		cs_threshold_calc_and_set(channel);
 		break;
 
 	case UBERTOOTH_READ_REGISTER:
@@ -789,6 +608,32 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 
 	case UBERTOOTH_WRITE_REGISTER:
 		cc2400_set(request_params[0] & 0xff, request_params[1]);
+		break;
+
+	case UBERTOOTH_WRITE_REGISTERS:
+		for(i=0; i<request_params[0]; i++) {
+			reg_val = (data[(i*3)+1] << 8) | data[(i*3)+2];
+			cc2400_set(data[i*3], reg_val);
+		}
+		break;
+
+	case UBERTOOTH_READ_ALL_REGISTERS:
+		#define MAX_READ_REG 0x2d
+		for(i=0; i<=MAX_READ_REG; i++) {
+			reg_val = cc2400_get(i);
+			data[i*3] = i;
+			data[(i*3)+1] = (reg_val >> 8) & 0xff;
+			data[(i*3)+2] = reg_val & 0xff;
+		}
+		*data_len = MAX_READ_REG*3;
+		break;
+
+	case UBERTOOTH_TX_GENERIC_PACKET:
+		i = 7 + data[6];
+		memcpy(&tx_pkt, data, i);
+		//tx_pkt.channel = data[4] << 8 | data[5];
+		requested_mode = MODE_TX_GENERIC;
+		*data_len = 0;
 		break;
 
 	case UBERTOOTH_BTLE_SLAVE:
@@ -823,69 +668,38 @@ static int vendor_request_handler(u8 request, u16 *request_params, u8 *data, int
 		ego_mode = request_params[0];
 		break;
 
+	case UBERTOOTH_GET_API_VERSION:
+		for (int i = 0; i < 4; ++i)
+			data[i] = (UBERTOOTH_API_VERSION >> (8*i)) & 0xff;
+		*data_len = 4;
+		break;
+
 	default:
 		return 0;
 	}
 	return 1;
 }
 
-static void clkn_init()
-{
-	/*
-	 * Because these are reset defaults, we're assuming TIMER0 is powered on
-	 * and in timer mode.  The TIMER0 peripheral clock should have been set by
-	 * clock_start().
-	 */
-
-	/* stop and reset the timer to zero */
-	T0TCR = TCR_Counter_Reset;
-	clkn = 0;
-
-#ifdef TC13BADGE
-	/*
-	 * The peripheral clock has a period of 33.3ns.  3 pclk periods makes one
-	 * CLK100NS period (100 ns).
-	 */
-	T0PR = 2;
-#else
-	/*
-	 * The peripheral clock has a period of 20ns.  5 pclk periods
-	 * makes one CLK100NS period (100 ns).
-	 */
-	T0PR = 4;
-#endif
-	/* 3125 * 100 ns = 312.5 us, the Bluetooth clock (CLKN). */
-	T0MR0 = 3124;
-	T0MCR = TMCR_MR0R | TMCR_MR0I;
-	ISER0 = ISER0_ISE_TIMER0;
-
-	/* start timer */
-	T0TCR = TCR_Counter_Enable;
-}
-
 /* Update CLKN. */
 void TIMER0_IRQHandler()
 {
-	// Use non-volatile working register to shave off a couple instructions
-	u32 next;
-	u32 le_clk;
-
 	if (T0IR & TIR_MR0_Interrupt) {
 
-		clkn++;
-		next = clkn;
-		le_clk = (next - le.conn_epoch) & 0x03;
+		clkn += clkn_offset + 1;
+		clkn_offset = 0;
+
+		uint32_t le_clk = (clkn - le.conn_epoch) & 0x03;
 
 		/* Trigger hop based on mode */
 
 		/* NONE or SWEEP -> 25 Hz */
 		if (hop_mode == HOP_NONE || hop_mode == HOP_SWEEP) {
-			if ((next & 0x7f) == 0)
+			if ((clkn & 0x7f) == 0)
 				do_hop = 1;
 		}
 		/* BLUETOOTH -> 1600 Hz */
 		else if (hop_mode == HOP_BLUETOOTH) {
-			if ((next & 0x1) == 0)
+			if ((clkn & 0x1) == 0)
 				do_hop = 1;
 		}
 		/* BLUETOOTH Low Energy -> 7.5ms - 4.0s in multiples of 1.25 ms */
@@ -902,248 +716,109 @@ void TIMER0_IRQHandler()
 				}
 			}
 		}
+		else if (hop_mode == HOP_AFH) {
+			if( (last_hop + hop_timeout) == clkn ) {
+				do_hop = 1;
+			}
+		}
 
-		/* Keepalive trigger fires at 3200/2^9 = 6.25 Hz */
-		if ((next & 0x1ff) == 0)
-			keepalive_trigger = 1;
+		// Fix linear clock drift deviation
+		if(clkn_next_drift_fix != 0 && clk100ns_offset == 0) {
+			if(clkn >= clkn_next_drift_fix) {
+
+				// Too fast
+				if(clk_drift_ppm >= 0) {
+					clk100ns_offset = 1;
+				}
+
+				// Too slow
+				else {
+					clk100ns_offset = 6249;
+				}
+				clkn_last_drift_fix = clkn;
+				clkn_next_drift_fix = clkn_last_drift_fix + clk_drift_correction;
+			}
+		}
+
+		// Negative clock correction
+		if(clk100ns_offset > 3124)
+			clkn += 2;
+
+		T0MR0 = 3124 + clk100ns_offset;
+		clk100ns_offset = 0;
 
 		/* Ack interrupt */
-		T0MR0 = 3124 - clock_trim;
-		clock_trim = 0;
 		T0IR = TIR_MR0_Interrupt;
 	}
 }
 
 /* EINT3 handler is also defined in ubertooth.c for TC13BADGE. */
 #ifndef TC13BADGE
-//static volatile u8 txledstate = 1;
 void EINT3_IRQHandler()
 {
 	/* TODO - check specific source of shared interrupt */
-	IO2IntClr = PIN_GIO6;            // clear interrupt
-	cs_trigger = 1;                  // signal trigger
-	cs_timestamp = CLK100NS;         // time at trigger
+	IO2IntClr   = PIN_GIO6; // clear interrupt
+	DIO_SSEL_CLR;           // enable SPI
+	cs_trigger  = 1;        // signal trigger
+	if (hop_mode == HOP_BLUETOOTH)
+		dma_discard = 0;
+
 }
 #endif // TC13BADGE
 
-/* Sleep (busy wait) for 'millis' milliseconds. The 'wait' routines in
- * ubertooth.c are matched to the clock setup at boot time and can not
- * be used while the board is running at 100MHz. */
+/*
+ * Sleep (busy wait) for 'millis' milliseconds
+ * Needs clkn. Be sure to call clkn_init() before using it.
+ */
 static void msleep(uint32_t millis)
 {
-	uint32_t stop_at = clkn + millis * 3125 / 1000;  // millis -> clkn ticks
-	do { } while (clkn < stop_at);                   // TODO: handle wrapping
-}
+	uint32_t now = (clkn & 0xffffff);
+	uint32_t stop_at = now + millis * 10000 / 3125; // millis -> clkn ticks
 
-static void dma_init()
-{
-	/* power up GPDMA controller */
-	PCONP |= PCONP_PCGPDMA;
-
-	/* zero out channel configs and clear interrupts */
-	DMACC0Config = 0;
-	DMACC1Config = 0;
-	DMACC2Config = 0;
-	DMACC3Config = 0;
-	DMACC4Config = 0;
-	DMACC5Config = 0;
-	DMACC6Config = 0;
-	DMACC7Config = 0;
-	DMACIntTCClear = 0xFF;
-	DMACIntErrClr = 0xFF;
-
-	/* DMA linked lists */
-	rx_dma_lli1.src = (u32)&(DIO_SSP_DR);
-	rx_dma_lli1.dest = (u32)&rxbuf1[0];
-	rx_dma_lli1.next_lli = (u32)&rx_dma_lli2;
-	rx_dma_lli1.control = (DMA_SIZE) |
-			(1 << 12) |        /* source burst size = 4 */
-			(1 << 15) |        /* destination burst size = 4 */
-			(0 << 18) |        /* source width 8 bits */
-			(0 << 21) |        /* destination width 8 bits */
-			DMACCxControl_DI | /* destination increment */
-			DMACCxControl_I;   /* terminal count interrupt enable */
-
-	rx_dma_lli2.src = (u32)&(DIO_SSP_DR);
-	rx_dma_lli2.dest = (u32)&rxbuf2[0];
-	rx_dma_lli2.next_lli = (u32)&rx_dma_lli1;
-	rx_dma_lli2.control = (DMA_SIZE) |
-			(1 << 12) |        /* source burst size = 4 */
-			(1 << 15) |        /* destination burst size = 4 */
-			(0 << 18) |        /* source width 8 bits */
-			(0 << 21) |        /* destination width 8 bits */
-			DMACCxControl_DI | /* destination increment */
-			DMACCxControl_I;   /* terminal count interrupt enable */
-
-	/* disable DMA interrupts */
-	ICER0 = ICER0_ICE_DMA;
-
-	/* enable DMA globally */
-	DMACConfig = DMACConfig_E;
-	while (!(DMACConfig & DMACConfig_E));
-
-	/* configure DMA channel 1 */
-	DMACC0SrcAddr = rx_dma_lli1.src;
-	DMACC0DestAddr = rx_dma_lli1.dest;
-	DMACC0LLI = rx_dma_lli1.next_lli;
-	DMACC0Control = rx_dma_lli1.control;
-	DMACC0Config =
-			DIO_SSP_SRC |
-			(0x2 << 11) |           /* peripheral to memory */
-			DMACCxConfig_IE |       /* allow error interrupts */
-			DMACCxConfig_ITC;       /* allow terminal count interrupts */
-
-	active_buf_clkn_high = (clkn >> 20) & 0xff;
-	active_buf_clk100ns = CLK100NS;
-	active_buf_channel = channel;
-
-	/* reset interrupt counters */
-	rx_tc = 0;
-	rx_err = 0;
-}
-
-static void dma_init_le()
-{
-	int i;
-
-	/* power up GPDMA controller */
-	PCONP |= PCONP_PCGPDMA;
-
-	/* zero out channel configs and clear interrupts */
-	DMACC0Config = 0;
-	DMACC1Config = 0;
-	DMACC2Config = 0;
-	DMACC3Config = 0;
-	DMACC4Config = 0;
-	DMACC5Config = 0;
-	DMACC6Config = 0;
-	DMACC7Config = 0;
-	DMACIntTCClear = 0xFF;
-	DMACIntErrClr = 0xFF;
-
-	/* enable DMA globally */
-	DMACConfig = DMACConfig_E;
-	while (!(DMACConfig & DMACConfig_E));
-
-	for (i = 0; i < 11; ++i) {
-		le_dma_lli[i].src = (u32)&(DIO_SSP_DR);
-		le_dma_lli[i].dest = (u32)&rxbuf1[4 * i];
-		le_dma_lli[i].next_lli = i < 10 ? (u32)&le_dma_lli[i+1] : 0;
-		le_dma_lli[i].control = 4 |
-				(1 << 12) |        /* source burst size = 4 */
-				(0 << 15) |        /* destination burst size = 1 */
-				(0 << 18) |        /* source width 8 bits */
-				(0 << 21) |        /* destination width 8 bits */
-				DMACCxControl_DI | /* destination increment */
-				DMACCxControl_I;   /* terminal count interrupt enable */
-	}
-
-	/* configure DMA channel 0 */
-	DMACC0SrcAddr = le_dma_lli[0].src;
-	DMACC0DestAddr = le_dma_lli[0].dest;
-	DMACC0LLI = le_dma_lli[0].next_lli;
-	DMACC0Control = le_dma_lli[0].control;
-	DMACC0Config =
-			DIO_SSP_SRC |
-			(0x2 << 11) |           /* peripheral to memory */
-			DMACCxConfig_IE |       /* allow error interrupts */
-			DMACCxConfig_ITC;       /* allow terminal count interrupts */
-
-	active_buf_clkn_high = (clkn >> 20) & 0xff;
-	active_buf_clk100ns = CLK100NS;
-	active_buf_channel = channel;
-
-	/* reset interrupt counters */
-	rx_tc = 0;
-	rx_err = 0;
-}
-
-void bt_stream_dma_handler(void) {
-	idle_buf_clkn_high = active_buf_clkn_high;
-	active_buf_clkn_high = (clkn >> 20) & 0xff;
-
-	idle_buf_clk100ns = active_buf_clk100ns;
-	active_buf_clk100ns = CLK100NS;
-
-	idle_buf_channel = active_buf_channel;
-	active_buf_channel = channel;
-
-	/* interrupt on channel 0 */
-	if (DMACIntStat & (1 << 0)) {
-		if (DMACIntTCStat & (1 << 0)) {
-			DMACIntTCClear = (1 << 0);
-			++rx_tc;
-		}
-		if (DMACIntErrStat & (1 << 0)) {
-			DMACIntErrClr = (1 << 0);
-			++rx_err;
-		}
+	// handle clkn overflow
+	if (stop_at >= ((uint32_t)1<<28)) {
+		stop_at -= ((uint32_t)1<<28);
+		while ((clkn & 0xffffff) >= now || (clkn & 0xffffff) < stop_at);
+	} else {
+		while ((clkn & 0xffffff) < stop_at);
 	}
 }
 
 void DMA_IRQHandler()
 {
-	switch (mode) {
-		case MODE_RX_SYMBOLS:
-		case MODE_SPECAN:
-		case MODE_BT_FOLLOW:
-		case MODE_BT_FOLLOW_LE:
-		case MODE_BT_PROMISC_LE:
-		case MODE_BT_SLAVE_LE:
-			bt_stream_dma_handler();
-			break;
+	if ( mode == MODE_RX_SYMBOLS
+	   || mode == MODE_BT_FOLLOW
+	   || mode == MODE_SPECAN
+	   || mode == MODE_BT_FOLLOW_LE
+	   || mode == MODE_BT_PROMISC_LE
+	   || mode == MODE_BT_SLAVE_LE
+	   || mode == MODE_RX_GENERIC)
+	{
+		/* interrupt on channel 0 */
+		if (DMACIntStat & (1 << 0)) {
+			if (DMACIntTCStat & (1 << 0)) {
+				DMACIntTCClear = (1 << 0);
+
+				if (hop_mode == HOP_BLUETOOTH)
+					DIO_SSEL_SET;
+
+				idle_buf_clk100ns  = CLK100NS;
+				idle_buf_clkn_high = (clkn >> 20) & 0xff;
+				idle_buf_channel   = channel;
+
+				/* Keep buffer swapping in sync with DMA. */
+				volatile uint8_t* tmp = active_rxbuf;
+				active_rxbuf = idle_rxbuf;
+				idle_rxbuf = tmp;
+
+				++rx_tc;
+			}
+			if (DMACIntErrStat & (1 << 0)) {
+				DMACIntErrClr = (1 << 0);
+				++rx_err;
+			}
+		}
 	}
-}
-
-static void dio_ssp_start()
-{
-	/* make sure the (active low) slave select signal is not active */
-	DIO_SSEL_SET;
-
-	/* enable rx DMA on DIO_SSP */
-	DIO_SSP_DMACR |= SSPDMACR_RXDMAE;
-	DIO_SSP_CR1 |= SSPCR1_SSE;
-	
-	/* enable DMA */
-	DMACC0Config |= DMACCxConfig_E;
-	ISER0 = ISER0_ISE_DMA;
-
-	/* activate slave select pin */
-	DIO_SSEL_CLR;
-}
-
-static void dio_ssp_stop()
-{
-	// disable CC2400's output (active low)
-	DIO_SSEL_SET;
-
-	// disable DMA on SSP; disable SSP
-	DIO_SSP_DMACR &= ~SSPDMACR_RXDMAE;
-	DIO_SSP_CR1 &= ~SSPCR1_SSE;
-
-
-	// disable DMA engine:
-	// refer to UM10360 LPC17xx User Manual Ch 31 Sec 31.6.1, PDF page 607
-
-	// disable DMA interrupts
-	ICER0 = ICER0_ICE_DMA;
-
-	// disable active channels
-	DMACC0Config = 0;
-	DMACC1Config = 0;
-	DMACC2Config = 0;
-	DMACC3Config = 0;
-	DMACC4Config = 0;
-	DMACC5Config = 0;
-	DMACC6Config = 0;
-	DMACC7Config = 0;
-	DMACIntTCClear = 0xFF;
-	DMACIntErrClr = 0xFF;
-
-	// Disable the DMA controller by writing 0 to the DMA Enable bit in the DMACConfig
-	// register.
-	DMACConfig &= ~DMACConfig_E;
-	while (DMACConfig & DMACConfig_E);
 }
 
 static void cc2400_idle()
@@ -1159,37 +834,75 @@ static void cc2400_idle()
 	RXLED_CLR;
 	TXLED_CLR;
 	USRLED_CLR;
+
+	clkn_stop();
+	dio_ssp_stop();
+	cs_reset();
+	rssi_reset();
+
+	/* hopping stuff */
+	hop_mode = HOP_NONE;
+	do_hop = 0;
+	channel = 2441;
+	hop_direct_channel = 0;
+	hop_timeout = 158;
+	requested_channel = 0;
+	saved_request = 0;
+
+
+	/* bulk USB stuff */
+	idle_buf_clkn_high = 0;
+	idle_buf_clk100ns = 0;
+	idle_buf_channel = 0;
+	dma_discard = 0;
+	status = 0;
+
+	/* operation mode */
 	mode = MODE_IDLE;
+	requested_mode = MODE_IDLE;
+	jam_mode = JAM_NONE;
+	ego_mode = EGO_FOLLOW;
+
+	modulation = MOD_BT_BASIC_RATE;
+
+	/* specan stuff */
+	low_freq = 2400;
+	high_freq = 2483;
+	rssi_threshold = -30;
+
+	target.address = 0;
+	target.syncword = 0;
 }
 
 /* start un-buffered rx */
 static void cc2400_rx()
 {
-	u16 mdmctrl;
-	if (modulation == MOD_BT_BASIC_RATE) {
-		mdmctrl = 0x0029; // 160 kHz frequency deviation
-	} else if (modulation == MOD_BT_LOW_ENERGY) {
-		mdmctrl = 0x0040; // 250 kHz frequency deviation
-	} else {
-		/* oops */
-		return;
+	u16 mdmctrl = 0;
+
+	if((modulation == MOD_BT_BASIC_RATE) || (modulation == MOD_BT_LOW_ENERGY)) {
+		if (modulation == MOD_BT_BASIC_RATE) {
+			mdmctrl = 0x0029; // 160 kHz frequency deviation
+		} else if (modulation == MOD_BT_LOW_ENERGY) {
+			mdmctrl = 0x0040; // 250 kHz frequency deviation
+		}
+		cc2400_set(MANAND,  0x7fff);
+		cc2400_set(LMTST,   0x2b22);
+		cc2400_set(MDMTST0, 0x134b); // without PRNG
+		cc2400_set(GRMDM,   0x0101); // un-buffered mode, GFSK
+		// 0 00 00 0 010 00 0 00 0 1
+		//      |  | |   |  +--------> CRC off
+		//      |  | |   +-----------> sync word: 8 MSB bits of SYNC_WORD
+		//      |  | +---------------> 2 preamble bytes of 01010101
+		//      |  +-----------------> not packet mode
+			//      +--------------------> un-buffered mode
+		cc2400_set(FSDIV,   channel - 1); // 1 MHz IF
+		cc2400_set(MDMCTRL, mdmctrl);
 	}
 
-	cc2400_set(MANAND,  0x7fff);
-	cc2400_set(LMTST,   0x2b22);
-	cc2400_set(MDMTST0, 0x134b); // without PRNG
-	cc2400_set(GRMDM,   0x0101); // un-buffered mode, GFSK
-	// 0 00 00 0 010 00 0 00 0 1
-	//      |  | |   |  +--------> CRC off
-	//      |  | |   +-----------> sync word: 8 MSB bits of SYNC_WORD
-	//      |  | +---------------> 2 preamble bytes of 01010101
-	//      |  +-----------------> not packet mode
-	//      +--------------------> un-buffered mode
-	cc2400_set(FSDIV,   channel - 1); // 1 MHz IF
-	cc2400_set(MDMCTRL, mdmctrl);
-
 	// Set up CS register
-	cs_threshold_calc_and_set();
+	cs_threshold_calc_and_set(channel);
+
+	clkn_start();
 
 	while (!(cc2400_status() & XOSC16M_STABLE));
 	cc2400_strobe(SFSON);
@@ -1253,12 +966,14 @@ static void cc2400_rx_sync(u32 sync)
 
 	cc2400_set(SYNCL,   sync & 0xffff);
 	cc2400_set(SYNCH,   (sync >> 16) & 0xffff);
-	
+
 	cc2400_set(FSDIV,   channel - 1); // 1 MHz IF
 	cc2400_set(MDMCTRL, mdmctrl);
 
 	// Set up CS register
-	cs_threshold_calc_and_set();
+	cs_threshold_calc_and_set(channel);
+
+	clkn_start();
 
 	while (!(cc2400_status() & XOSC16M_STABLE));
 	cc2400_strobe(SFSON);
@@ -1267,6 +982,54 @@ static void cc2400_rx_sync(u32 sync)
 #ifdef UBERTOOTH_ONE
 	PAEN_SET;
 	HGM_SET;
+#endif
+}
+
+/* start buffered tx */
+static void cc2400_tx_sync(uint32_t sync)
+{
+#ifdef TX_ENABLE
+	// Bluetooth-like modulation
+	cc2400_set(MANAND,  0x7fff);
+	cc2400_set(LMTST,   0x2b22);    // LNA and receive mixers test register
+	cc2400_set(MDMTST0, 0x134b);    // no PRNG
+
+	cc2400_set(GRMDM,   0x0c01);
+	// 0 00 01 1 000 00 0 00 0 1
+	//      |  | |   |  +--------> CRC off
+	//      |  | |   +-----------> sync word: 8 MSB bits of SYNC_WORD
+	//      |  | +---------------> 0 preamble bytes of 01010101
+	//      |  +-----------------> packet mode
+	//      +--------------------> buffered mode
+
+	cc2400_set(SYNCL,   sync & 0xffff);
+	cc2400_set(SYNCH,   (sync >> 16) & 0xffff);
+
+	cc2400_set(FSDIV,   channel);
+	cc2400_set(FREND,   0b1011);    // amplifier level (-7 dBm, picked from hat)
+
+	if (modulation == MOD_BT_BASIC_RATE) {
+		cc2400_set(MDMCTRL, 0x0029);    // 160 kHz frequency deviation
+	} else if (modulation == MOD_BT_LOW_ENERGY) {
+		cc2400_set(MDMCTRL, 0x0040);    // 250 kHz frequency deviation
+	} else {
+		/* oops */
+		return;
+	}
+
+	clkn_start();
+
+	while (!(cc2400_status() & XOSC16M_STABLE));
+	cc2400_strobe(SFSON);
+	while (!(cc2400_status() & FS_LOCK));
+
+#ifdef UBERTOOTH_ONE
+	PAEN_SET;
+#endif
+
+	while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
+	cc2400_strobe(STX);
+
 #endif
 }
 
@@ -1328,7 +1091,7 @@ void le_transmit(u32 aa, u8 len, u8 *data)
 	cc2400_set(FSDIV,   channel);
 	cc2400_set(FREND,   0b1011);    // amplifier level (-7 dBm, picked from hat)
 	cc2400_set(MDMCTRL, 0x0040);    // 250 kHz frequency deviation
-	cc2400_set(INT,     0x0014);	// FIFO_THRESHOLD: 20 bytes
+	cc2400_set(INT,     0x0014);    // FIFO_THRESHOLD: 20 bytes
 
 	// sync byte depends on the first transmitted bit of the AA
 	if (aa & 1)
@@ -1356,7 +1119,7 @@ void le_transmit(u32 aa, u8 len, u8 *data)
 		tx_len = len - i;
 		if (tx_len > 16)
 			tx_len = 16;
-		cc2400_spi_buf(FIFOREG, tx_len, txbuf + i);
+		cc2400_fifo_write(tx_len, txbuf + i);
 	}
 
 	while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
@@ -1408,92 +1171,92 @@ void le_jam(void) {
 void hop(void)
 {
 	do_hop = 0;
+	last_hop = clkn;
 
 	// No hopping, if channel is set correctly, do nothing
 	if (hop_mode == HOP_NONE) {
 		if (cc2400_get(FSDIV) == (channel - 1))
 			return;
 	}
-
-	// Slow sweep (100 hops/sec)
+	/* Slow sweep (100 hops/sec)
+	 * only hop to currently used channels if AFH is enabled
+	 */
 	else if (hop_mode == HOP_SWEEP) {
-		channel += 32;
-		if (channel > 2480)
-			channel -= 79;
+		do {
+			channel += 32;
+			if (channel > 2480)
+				channel -= 79;
+		} while ( used_channels != 0 && afh_enabled && !( afh_map[(channel-2402)/8] & 0x1<<((channel-2402)%8) ) );
+	}
+
+	/* AFH detection
+	 * only hop to currently unused channesl
+	 */
+	else if (hop_mode == HOP_AFH) {
+		do {
+			channel += 32;
+			if (channel > 2480)
+				channel -= 79;
+		} while( used_channels != 79 && (afh_map[(channel-2402)/8] & 0x1<<((channel-2402)%8)) );
 	}
 
 	else if (hop_mode == HOP_BLUETOOTH) {
-		TXLED_SET;
 		channel = next_hop(clkn);
 	}
 
 	else if (hop_mode == HOP_BTLE) {
-		TXLED_SET;
 		channel = btle_next_hop(&le);
 	}
 
 	else if (hop_mode == HOP_DIRECT) {
-		TXLED_SET;
 		channel = hop_direct_channel;
 	}
-
-        /* IDLE mode, but leave amp on, so don't call cc2400_idle(). */
+	/* IDLE mode, but leave amp on, so don't call cc2400_idle(). */
 	cc2400_strobe(SRFOFF);
 	while ((cc2400_status() & FS_LOCK)); // need to wait for unlock?
 
 	/* Retune */
-	cc2400_set(FSDIV, channel - 1);
-	
+	if(mode == MODE_TX_SYMBOLS)
+		cc2400_set(FSDIV, channel);
+	else
+		cc2400_set(FSDIV, channel - 1);
+
 	/* Update CS register if hopping.  */
 	if (hop_mode > 0) {
-		cs_threshold_calc_and_set();
+		cs_threshold_calc_and_set(channel);
 	}
 
 	/* Wait for lock */
 	cc2400_strobe(SFSON);
 	while (!(cc2400_status() & FS_LOCK));
-	
-	/* RX mode */
-	cc2400_strobe(SRX);
 
+	dma_discard = 1;
+
+	if(mode == MODE_TX_SYMBOLS)
+		cc2400_strobe(STX);
+	else
+		cc2400_strobe(SRX);
 }
 
 /* Bluetooth packet monitoring */
 void bt_stream_rx()
 {
-	u8 *tmp = NULL;
-	u8 hold;
 	int8_t rssi;
-	int i;
-	int16_t packet_offset;
 	int8_t rssi_at_trigger;
-	
+
 	RXLED_CLR;
 
 	queue_init();
 	dio_ssp_init();
 	dma_init();
 	dio_ssp_start();
-	
-	if(mode == MODE_BT_FOLLOW) {
-		precalc();
-		cc2400_rx_sync((syncword >> 32) & 0xffffffff);
-	} else {
-		cc2400_rx();
-	}
+
+	cc2400_rx();
+
 	cs_trigger_enable();
 
-	hold = 0;
-
-	while ((requested_mode == MODE_RX_SYMBOLS) ||
-		   (requested_mode == MODE_BT_FOLLOW)) {
-
-		/* If timer says time to hop, do it. TODO - set
-		 * per-channel carrier sense threshold. Set by
-		 * firmware or host. TODO - if hop happened, clear
-		 * hold. */
-		if (do_hop)
-			hop();
+	while ( requested_mode == MODE_RX_SYMBOLS || requested_mode == MODE_BT_FOLLOW )
+	{
 
 		RXLED_CLR;
 
@@ -1509,35 +1272,42 @@ void bt_stream_rx()
 		 * happened before the loop started. */
 		rssi_reset();
 		rssi_at_trigger = INT8_MIN;
-		while ((rx_tc == 0) && (rx_err == 0)) {
+		while (!rx_tc) {
 			rssi = (int8_t)(cc2400_get(RSSI) >> 8);
 			if (cs_trigger && (rssi_at_trigger == INT8_MIN)) {
 				rssi = MAX(rssi,(cs_threshold_cur+54));
 				rssi_at_trigger = rssi;
 			}
 			rssi_add(rssi);
+
+			handle_usb(clkn);
+
+			/* If timer says time to hop, do it. */
+			if (do_hop) {
+				hop();
+			} else {
+				TXLED_CLR;
+			}
+			/* TODO - set per-channel carrier sense threshold.
+			 * Set by firmware or host. */
 		}
 
-		/* Keep buffer swapping in sync with DMA. */
-		if (rx_tc % 2) {
-			tmp = active_rxbuf;
-			active_rxbuf = idle_rxbuf;
-			idle_rxbuf = tmp;
-		}
+		RXLED_SET;
 
 		if (rx_err) {
 			status |= DMA_ERROR;
 		}
 
-		/* No DMA transfer? */
-		if (!rx_tc)
-			goto rx_continue;
-
 		/* Missed a DMA trasfer? */
 		if (rx_tc > 1)
 			status |= DMA_OVERFLOW;
 
-		rssi_iir_update();
+		if (dma_discard) {
+			status |= DISCARD;
+			dma_discard = 0;
+		}
+
+		rssi_iir_update(channel);
 
 		/* Set squelch hold if there was either a CS trigger, squelch
 		 * is disabled, or if the current rssi_max is above the same
@@ -1545,47 +1315,15 @@ void bt_stream_rx()
 		 * per-channel or other rssi triggers in the future. */
 		if (cs_trigger || cs_no_squelch) {
 			status |= CS_TRIGGER;
-			hold = CS_HOLD_TIME;
 			cs_trigger = 0;
 		}
 
 		if (rssi_max >= (cs_threshold_cur + 54)) {
 			status |= RSSI_TRIGGER;
-			hold = CS_HOLD_TIME;
 		}
 
-		/* Send a packet once in a while (6.25 Hz) to keep
-		 * host USB reads from timing out. */
-		if (keepalive_trigger) {
-			if (hold == 0)
-				hold = 1;
-			keepalive_trigger = 0;
-		}
+		enqueue(BR_PACKET, (uint8_t*)idle_rxbuf);
 
-		/* Hold expired? Ignore data. */
-		if (hold == 0) {
-			goto rx_continue;
-		}
-		hold--;
-		
-		/* Queue data from DMA buffer. */
-		switch (hop_mode) {
-			case HOP_BLUETOOTH:
-				//if ((packet_offset = find_access_code(idle_rxbuf)) >= 0) {
-				//		clock_trim = 20 - packet_offset;
-						if (enqueue(BR_PACKET, idle_rxbuf)) {
-								RXLED_SET;
-						}
-				//}
-				break;
-			default:
-				if (enqueue(BR_PACKET, idle_rxbuf)) {
-						RXLED_SET;
-				}
-				break;
-		}
-
-	rx_continue:
 		handle_usb(clkn);
 		rx_tc = 0;
 		rx_err = 0;
@@ -1597,6 +1335,112 @@ void bt_stream_rx()
 	 * starting from scratch? */
 	dio_ssp_stop();
 	cs_trigger_disable();
+}
+
+static uint8_t reverse8(uint8_t data)
+{
+	uint8_t reversed = 0;
+
+	for(size_t i=0; i<8; i++)
+	{
+		reversed |= ((data >> i) & 0x01) << (7-i);
+	}
+
+	return reversed;
+}
+
+static uint16_t reverse16(uint16_t data)
+{
+	uint16_t reversed = 0;
+
+	for(size_t i=0; i<16; i++)
+	{
+		reversed |= ((data >> i) & 0x01) << (15-i);
+	}
+
+	return reversed;
+}
+
+/*
+ * Transmit a BTBR packet with the specified access code.
+ *
+ * All modulation parameters are set within this function.
+ */
+void br_transmit()
+{
+	uint16_t gio_save;
+
+	uint32_t clkn_saved = 0;
+
+	uint16_t preamble = (target.syncword & 1) == 1 ? 0x5555 : 0xaaaa;
+	uint8_t trailer = ((target.syncword >> 63) & 1) == 1 ? 0xaa : 0x55;
+
+	uint8_t data[16] = {
+		reverse8((target.syncword >> 0) & 0xFF),
+		reverse8((target.syncword >> 8) & 0xFF),
+		reverse8((target.syncword >> 16) & 0xFF),
+		reverse8((target.syncword >> 24) & 0xFF),
+		reverse8((target.syncword >> 32) & 0xFF),
+		reverse8((target.syncword >> 40) & 0xFF),
+		reverse8((target.syncword >> 48) & 0xFF),
+		reverse8((target.syncword >> 56) & 0xFF),
+		reverse8(trailer),
+		reverse8(0x77),
+		reverse8(0x66),
+		reverse8(0x55),
+		reverse8(0x44),
+		reverse8(0x33),
+		reverse8(0x22),
+		reverse8(0x11)
+	};
+
+	cc2400_tx_sync(reverse16(preamble));
+
+	cc2400_set(INT,     0x0014);    // FIFO_THRESHOLD: 20 bytes
+
+	// set GIO to FIFO_FULL
+	gio_save = cc2400_get(IOCFG);
+	cc2400_set(IOCFG, (GIO_FIFO_FULL << 9) | (gio_save & 0x1ff));
+
+	while ( requested_mode == MODE_TX_SYMBOLS )
+	{
+
+		while ((clkn >> 1) == (clkn_saved >> 1) || T0TC < 2250) {
+
+			// If timer says time to hop, do it.
+			if (do_hop) {
+				hop();
+			}
+		}
+
+		clkn_saved = clkn;
+
+		TXLED_SET;
+
+		cc2400_fifo_write(16, data);
+
+		while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
+		TXLED_CLR;
+
+		cc2400_strobe(SRFOFF);
+		while ((cc2400_status() & FS_LOCK));
+
+		while (!(cc2400_status() & XOSC16M_STABLE));
+		cc2400_strobe(SFSON);
+		while (!(cc2400_status() & FS_LOCK));
+
+		while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
+		cc2400_strobe(STX);
+
+		handle_usb(clkn);
+	}
+
+#ifdef UBERTOOTH_ONE
+	PAEN_CLR;
+#endif
+
+	// reset GIO
+	cc2400_set(IOCFG, gio_save);
 }
 
 /* set LE access address */
@@ -1612,9 +1456,9 @@ static void le_set_access_address(u32 aa) {
 /* reset le state, called by bt_generic_le and bt_follow_le() */
 void reset_le() {
 	le_set_access_address(0x8e89bed6);     // advertising channel access address
-	le.crc_init  = 0x555555;	       // advertising channel CRCInit
+	le.crc_init  = 0x555555;               // advertising channel CRCInit
 	le.crc_init_reversed = 0xAAAAAA;
-	le.crc_verify = 1;
+	le.crc_verify = 0;
 	le.last_packet = 0;
 
 	le.link_state = LINK_INACTIVE;
@@ -1635,7 +1479,7 @@ void reset_le() {
 	le.update_instant = 0;
 	le.interval_update = 0;
 	le.win_size_update = 0;
-	le.win_offset_update;
+	le.win_offset_update = 0;
 
 	do_hop = 0;
 }
@@ -1649,7 +1493,6 @@ void reset_le_promisc(void) {
 /* generic le mode */
 void bt_generic_le(u8 active_mode)
 {
-	u8 *tmp = NULL;
 	u8 hold;
 	int i, j;
 	int8_t rssi, rssi_at_trigger;
@@ -1713,13 +1556,6 @@ void bt_generic_le(u8 active_mode)
 			rssi_add(rssi);
 		}
 
-		/* Keep buffer swapping in sync with DMA. */
-		if (rx_tc % 2) {
-			tmp = active_rxbuf;
-			active_rxbuf = idle_rxbuf;
-			idle_rxbuf = tmp;
-		}
-
 		if (rx_err) {
 			status |= DMA_ERROR;
 		}
@@ -1732,7 +1568,7 @@ void bt_generic_le(u8 active_mode)
 		if (rx_tc > 1)
 			status |= DMA_OVERFLOW;
 
-		rssi_iir_update();
+		rssi_iir_update(channel);
 
 		/* Set squelch hold if there was either a CS trigger, squelch
 		 * is disabled, or if the current rssi_max is above the same
@@ -1747,14 +1583,6 @@ void bt_generic_le(u8 active_mode)
 		if (rssi_max >= (cs_threshold_cur + 54)) {
 			status |= RSSI_TRIGGER;
 			hold = CS_HOLD_TIME;
-		}
-
-		/* Send a packet once in a while (6.25 Hz) to keep
-		 * host USB reads from timing out. */
-		if (keepalive_trigger) {
-			if (hold == 0)
-				hold = 1;
-			keepalive_trigger = 0;
 		}
 
 		/* Hold expired? Ignore data. */
@@ -1842,6 +1670,9 @@ void bt_le_sync(u8 active_mode)
 		while ((rx_tc == 0) && (rx_err == 0) && (do_hop == 0) && requested_mode == active_mode)
 			;
 
+		rssi = (int8_t)(cc2400_get(RSSI) >> 8);
+		rssi_min = rssi_max = rssi;
+
 		if (requested_mode != active_mode) {
 			goto cleanup;
 		}
@@ -1860,7 +1691,7 @@ void bt_le_sync(u8 active_mode)
 		/////////////////////
 		// process the packet
 
-		uint32_t packet[48/4+1];
+		uint32_t packet[48/4+1] = { 0, };
 		u8 *p = (u8 *)packet;
 		packet[0] = le.access_address;
 
@@ -1889,11 +1720,14 @@ void bt_le_sync(u8 active_mode)
 		}
 		DIO_SSP_DMACR &= ~SSPDMACR_RXDMAE;
 
+		// strobe SFSON to allow the resync to occur while we process the packet
+		cc2400_strobe(SFSON);
+
 		// unwhiten the rest of the packet
 		for (i = 4; i < 44; i += 4) {
 			uint32_t v = rxbuf1[i+0] << 24
 					   | rxbuf1[i+1] << 16
-				       | rxbuf1[i+2] << 8
+					   | rxbuf1[i+2] << 8
 					   | rxbuf1[i+3] << 0;
 			packet[i/4+1] = rbit(v) ^ whit[i/4];
 		}
@@ -1914,8 +1748,8 @@ void bt_le_sync(u8 active_mode)
 		le.last_packet = CLK100NS;
 
 	rx_flush:
+		// this might happen twice, but it's safe to do so
 		cc2400_strobe(SFSON);
-		while (!(cc2400_status() & FS_LOCK));
 
 		// flush any excess bytes from the SSP's buffer
 		DIO_SSP_DMACR &= ~SSPDMACR_RXDMAE;
@@ -1977,6 +1811,8 @@ void bt_le_sync(u8 active_mode)
 				cc2400_rx_sync(rbit(le.access_address));
 				restart_jamming = 0;
 			} else {
+				// wait till we're in FSLOCK before strobing RX
+				while (!(cc2400_status() & FS_LOCK));
 				cc2400_strobe(SRX);
 			}
 		}
@@ -2032,7 +1868,7 @@ int cb_follow_le() {
 			// verify CRC
 			if (le.crc_verify) {
 				int len		 = (idle_rxbuf[5] & 0x3f) + 2;
-				u32 calc_crc = btle_crcgen_lut(le.crc_init_reversed, idle_rxbuf + 4, len);
+				u32 calc_crc = btle_crcgen_lut(le.crc_init_reversed, (uint8_t*)idle_rxbuf + 4, len);
 				u32 wire_crc = (idle_rxbuf[4+len+2] << 16)
 							 | (idle_rxbuf[4+len+1] << 8)
 							 |  idle_rxbuf[4+len+0];
@@ -2041,10 +1877,10 @@ int cb_follow_le() {
 			}
 
 			// send to PC
-			enqueue(LE_PACKET, idle_rxbuf);
+			enqueue(LE_PACKET, (uint8_t*)idle_rxbuf);
 			RXLED_SET;
 
-			packet_cb(idle_rxbuf);
+			packet_cb((uint8_t*)idle_rxbuf);
 
 			break;
 		}
@@ -2065,11 +1901,11 @@ void connection_follow_cb(u8 *packet) {
 #define DATA_LEN_IDX 5
 #define DATA_START_IDX 6
 
-	u8 *adv_addr = &packet[ADV_ADDRESS_IDX];
+	// u8 *adv_addr = &packet[ADV_ADDRESS_IDX];
 	u8 header = packet[HEADER_IDX];
 	u8 *data_len = &packet[DATA_LEN_IDX];
 	u8 *data = &packet[DATA_START_IDX];
-	u8 *crc = &packet[DATA_START_IDX + *data_len];
+	// u8 *crc = &packet[DATA_START_IDX + *data_len];
 
 	if (le.link_state == LINK_CONN_PENDING) {
 		// We received a packet in the connection pending state, so now the device *should* be connected
@@ -2111,11 +1947,22 @@ void connection_follow_cb(u8 *packet) {
 	} else if (le.link_state == LINK_LISTENING) {
 		u8 pkt_type = packet[4] & 0x0F;
 		if (pkt_type == 0x05) {
+			uint16_t conn_interval;
+
+			// ignore packets with incorrect length
+			if (*data_len != 34)
+				return;
+
+			// conn interval must be [7.5 ms, 4.0s] in units of 1.25 ms
+			conn_interval = (packet[29] << 8) | packet[28];
+			if (conn_interval < 6 || conn_interval > 3200)
+				return;
+
 			// This is a connect packet
 			// if we have a target, see if InitA or AdvA matches
 			if (le.target_set &&
-			    memcmp(le.target, &packet[6], 6) &&  // Target address doesn't match Initiator.
-			    memcmp(le.target, &packet[12], 6)) {  // Target address doesn't match Advertiser.
+				memcmp(le.target, &packet[6], 6) &&  // Target address doesn't match Initiator.
+				memcmp(le.target, &packet[12], 6)) {  // Target address doesn't match Advertiser.
 				return;
 			}
 
@@ -2139,7 +1986,8 @@ void connection_follow_cb(u8 *packet) {
 			le.win_offset = packet[WIN_OFFSET];
 
 #define CONN_INTERVAL (2+4+6+6+4+3+1+2)
-			le.conn_interval = packet[CONN_INTERVAL];
+			le.conn_interval = (packet[CONN_INTERVAL+1] << 8)
+							 |  packet[CONN_INTERVAL+0];
 
 #define CHANNEL_INC (2+4+6+6+4+3+1+2+2+2+2+5)
 			le.channel_increment = packet[CHANNEL_INC] & 0x1f;
@@ -2173,7 +2021,7 @@ void le_promisc_state(u8 type, void *data, unsigned len) {
 
 	buf[0] = type;
 	memcpy(&buf[1], data, len);
-	enqueue(LE_PROMISC, buf);
+	enqueue(LE_PROMISC, (uint8_t*)buf);
 }
 
 // divide, rounding to the nearest integer: round up at 0.5.
@@ -2371,7 +2219,7 @@ int cb_le_promisc(char *unpacked) {
 				 (idle_rxbuf[0]);
 		see_aa(aa);
 
-		enqueue(LE_PACKET, idle_rxbuf);
+		enqueue(LE_PACKET, (uint8_t*)idle_rxbuf);
 
 	}
 
@@ -2402,7 +2250,7 @@ void bt_promisc_le() {
 		// if the PC hasn't given us AA, determine by listening
 		if (!le.target_set) {
 			// cs_threshold_req = -80;
-			cs_threshold_calc_and_set();
+			cs_threshold_calc_and_set(channel);
 			data_cb = cb_le_promisc;
 			bt_generic_le(MODE_BT_PROMISC_LE);
 		}
@@ -2447,6 +2295,8 @@ void bt_slave_le() {
 	adv_ind[adv_ind_len+1] = (calc_crc >>  8) & 0xff;
 	adv_ind[adv_ind_len+2] = (calc_crc >> 16) & 0xff;
 
+	clkn_start();
+
 	// spam advertising packets
 	while (requested_mode == MODE_BT_SLAVE_LE) {
 		ICER0 = ICER0_ICE_USB;
@@ -2458,10 +2308,104 @@ void bt_slave_le() {
 	}
 }
 
+void rx_generic_sync(void) {
+	u8 len = 32;
+	u8 buf[len+4];
+	u16 reg_val;
+
+	/* Put syncword at start of buffer
+	 * DGS: fix this later, we don't know number of syncword bytes, etc
+	 */
+	reg_val = cc2400_get(SYNCH);
+	buf[0] = (reg_val >> 8) & 0xFF;
+	buf[1] = reg_val & 0xFF;
+	reg_val = cc2400_get(SYNCL);
+	buf[2] = (reg_val >> 8) & 0xFF;
+	buf[3] = reg_val & 0xFF;
+
+	queue_init();
+	clkn_start();
+
+	while (!(cc2400_status() & XOSC16M_STABLE));
+	cc2400_strobe(SFSON);
+	while (!(cc2400_status() & FS_LOCK));
+	RXLED_SET;
+#ifdef UBERTOOTH_ONE
+		PAEN_SET;
+		HGM_SET;
+#endif
+	while (1) {
+		while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
+		cc2400_strobe(SRX);
+		USRLED_CLR;
+		while (!(cc2400_status() & SYNC_RECEIVED));
+		USRLED_SET;
+
+		cc2400_fifo_read(len, buf+4);
+		enqueue(BR_PACKET, buf);
+		handle_usb(clkn);
+	}
+}
+
+void rx_generic(void) {
+	// Check for packet mode
+	if(cc2400_get(GRMDM) && 0x0400) {
+		rx_generic_sync();
+	} else {
+		modulation = MOD_NONE;
+		bt_stream_rx();
+	}
+}
+
+void tx_generic(void) {
+	u16 synch, syncl;
+	u8 prev_mode = mode;
+
+	mode = MODE_TX_GENERIC;
+
+	// Save existing syncword
+	synch = cc2400_get(SYNCH);
+	syncl = cc2400_get(SYNCL);
+
+	cc2400_set(SYNCH, tx_pkt.synch);
+	cc2400_set(SYNCL, tx_pkt.syncl);
+	cc2400_set(MDMCTRL, 0x0057);
+	cc2400_set(MDMTST0, 0x134b);
+	cc2400_set(GRMDM, 0x0f61);
+	cc2400_set(FSDIV, tx_pkt.channel);
+	cc2400_set(FREND, tx_pkt.pa_level);
+
+	while (!(cc2400_status() & XOSC16M_STABLE));
+	cc2400_strobe(SFSON);
+	while (!(cc2400_status() & FS_LOCK));
+	TXLED_SET;
+#ifdef UBERTOOTH_ONE
+		PAEN_SET;
+#endif
+	while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
+
+	cc2400_fifo_write(tx_pkt.length, tx_pkt.data);
+	cc2400_strobe(STX);
+
+	while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
+	TXLED_CLR;
+
+	cc2400_strobe(SRFOFF);
+	while ((cc2400_status() & FS_LOCK));
+
+#ifdef UBERTOOTH_ONE
+	PAEN_CLR;
+#endif
+
+	// Restore state
+	cc2400_set(SYNCH, synch);
+	cc2400_set(SYNCL, syncl);
+	requested_mode = prev_mode;
+}
+
 /* spectrum analysis */
 void specan()
 {
-	u8 epstat;
 	u16 f;
 	u8 i = 0;
 	u8 buf[DMA_SIZE];
@@ -2469,6 +2413,7 @@ void specan()
 	RXLED_SET;
 
 	queue_init();
+	clkn_start();
 
 #ifdef UBERTOOTH_ONE
 	PAEN_SET;
@@ -2506,7 +2451,6 @@ void specan()
 			while ((cc2400_status() & FS_LOCK));
 		}
 	}
-	mode = MODE_IDLE;
 	RXLED_CLR;
 }
 
@@ -2540,42 +2484,41 @@ void led_specan()
 
 		/* give the CC2400 time to acquire RSSI reading */
 		volatile u32 j = 500; while (--j); //FIXME crude delay
-		lvl = cc2400_get(RSSI) >> 8;
-        if (lvl > rssi_threshold) {
-            switch (i) {
-                case 0:
-                    TXLED_SET;
-                    break;
-                case 1:
-                    RXLED_SET;
-                    break;
-                case 2:
-                    USRLED_SET;
-                    break;
-            }
-        }
-        else {
-            switch (i) {
-                case 0:
-                    TXLED_CLR;
-                    break;
-                case 1:
-                    RXLED_CLR;
-                    break;
-                case 2:
-                    USRLED_CLR;
-                    break;
-            }
-        }
+		lvl = (int8_t)((cc2400_get(RSSI) >> 8) & 0xff);
+		if (lvl > rssi_threshold) {
+			switch (i) {
+				case 0:
+					TXLED_SET;
+					break;
+				case 1:
+					RXLED_SET;
+					break;
+				case 2:
+					USRLED_SET;
+					break;
+			}
+		}
+		else {
+			switch (i) {
+				case 0:
+					TXLED_CLR;
+					break;
+				case 1:
+					RXLED_CLR;
+					break;
+				case 2:
+					USRLED_CLR;
+					break;
+			}
+		}
 
 		i = (i+1) % 3;
 
 		handle_usb(clkn);
-        //wait(1);
+
 		cc2400_strobe(SRFOFF);
 		while ((cc2400_status() & FS_LOCK));
 	}
-	mode = MODE_IDLE;
 }
 
 int main()
@@ -2583,19 +2526,28 @@ int main()
 	ubertooth_init();
 	clkn_init();
 	ubertooth_usb_init(vendor_request_handler);
+	cc2400_idle();
 
 	while (1) {
 		handle_usb(clkn);
-		if(requested_mode != mode)
+		if(requested_mode != mode) {
 			switch (requested_mode) {
-				 case MODE_RESET:
+				case MODE_RESET:
 					/* Allow time for the USB command to return correctly */
 					wait(1);
 					reset();
 					break;
+				case MODE_AFH:
+					mode = MODE_AFH;
+					bt_stream_rx();
+					break;
 				case MODE_RX_SYMBOLS:
 					mode = MODE_RX_SYMBOLS;
 					bt_stream_rx();
+					break;
+				case MODE_TX_SYMBOLS:
+					mode = MODE_TX_SYMBOLS;
+					br_transmit();
 					break;
 				case MODE_BT_FOLLOW:
 					mode = MODE_BT_FOLLOW;
@@ -2617,9 +2569,7 @@ int main()
 				case MODE_RANGE_TEST:
 					mode = MODE_RANGE_TEST;
 					cc2400_rangetest(&channel);
-					mode = MODE_IDLE;
-					if (requested_mode == MODE_RANGE_TEST)
-						requested_mode = MODE_IDLE;
+					requested_mode = MODE_IDLE;
 					break;
 				case MODE_REPEATER:
 					mode = MODE_REPEATER;
@@ -2635,6 +2585,13 @@ int main()
 					mode = MODE_EGO;
 					ego_main(ego_mode);
 					break;
+				case MODE_RX_GENERIC:
+					mode = MODE_RX_GENERIC;
+					rx_generic();
+					break;
+				case MODE_TX_GENERIC:
+					tx_generic();
+					break;
 				case MODE_IDLE:
 					cc2400_idle();
 					break;
@@ -2642,5 +2599,6 @@ int main()
 					/* This is really an error state, but what can you do? */
 					break;
 			}
+		}
 	}
 }

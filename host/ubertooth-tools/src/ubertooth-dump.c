@@ -45,15 +45,15 @@ static void usage(void)
  * representing the symbol determined by the demodulator (GnuRadio style)
  */
 
-extern FILE *dumpfile;
-
 int main(int argc, char *argv[])
 {
 	int opt;
 	int bitstream = 0;
 	int modulation = MOD_BT_BASIC_RATE;
 	char ubertooth_device = -1;
-	struct libusb_device_handle *devh = NULL;
+
+	ubertooth_t* ut = NULL;
+	int r;
 
 	while ((opt=getopt(argc,argv,"bhclU:d:")) != EOF) {
 		switch(opt) {
@@ -83,19 +83,23 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	devh = ubertooth_start(ubertooth_device);
+	ut = ubertooth_start(ubertooth_device);
 
-	if (devh == NULL) {
+	if (ut == NULL) {
 		usage();
 		return 1;
 	}
 
+	r = ubertooth_check_api(ut);
+	if (r < 0)
+		return 1;
+
 	/* Clean up on exit. */
-	register_cleanup_handler(devh);
+	register_cleanup_handler(ut, 0);
 
-	cmd_set_modulation(devh, modulation);
-	rx_dump(devh, bitstream);
+	cmd_set_modulation(ut->devh, modulation);
+	rx_dump(ut, bitstream);
 
-	ubertooth_stop(devh);
+	ubertooth_stop(ut);
 	return 0;
 }

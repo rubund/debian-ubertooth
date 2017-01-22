@@ -60,22 +60,32 @@
 #define CTRL_IN     (LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_IN)
 #define CTRL_OUT    (LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_ENDPOINT_OUT)
 #define TIMEOUT     20000
-#define BUFFER_SIZE 102400
 
 /* RX USB packet parameters */
 #define PKT_LEN       64
 #define SYM_LEN       50
-#define SYM_OFFSET    14
-#define PKTS_PER_XFER 8
-#define NUM_BANKS     10
-#define XFER_LEN      (PKT_LEN * PKTS_PER_XFER)
-#define BANK_LEN      (SYM_LEN * PKTS_PER_XFER)
+#define BANK_LEN      (SYM_LEN * 8)
 
 #define MAX(a,b) ((a)>(b) ? (a) : (b))
 #define MIN(a,b) ((a)<(b) ? (a) : (b))
 
 void show_libusb_error(int error_code);
+int ubertooth_cmd_sync(struct libusb_device_handle* devh,
+	                   uint8_t type,
+	                   uint8_t command,
+	                   uint8_t* data,
+	                   uint16_t size);
+int ubertooth_cmd_async(struct libusb_device_handle* devh,
+	                    uint8_t type,
+	                    uint8_t command,
+	                    uint8_t* data,
+	                    uint16_t size);
+
+void cmd_trim_clock(struct libusb_device_handle* devh, uint16_t offset);
+void cmd_fix_clock_drift(struct libusb_device_handle* devh, int16_t ppm);
+int cmd_ping(struct libusb_device_handle* devh);
 int cmd_rx_syms(struct libusb_device_handle* devh);
+int cmd_tx_syms(struct libusb_device_handle* devh);
 int cmd_specan(struct libusb_device_handle* devh, u16 low_freq, u16 high_freq);
 int cmd_led_specan(struct libusb_device_handle* devh, u16 rssi_threshold);
 int cmd_set_usrled(struct libusb_device_handle* devh, u16 state);
@@ -111,7 +121,7 @@ int cmd_get_squelch(struct libusb_device_handle* devh);
 int cmd_set_bdaddr(struct libusb_device_handle* devh, u64 bdaddr);
 int cmd_set_syncword(struct libusb_device_handle* devh, u64 syncword);
 int cmd_next_hop(struct libusb_device_handle* devh, u16 clk);
-int cmd_start_hopping(struct libusb_device_handle* devh, int clock_offset);
+int cmd_start_hopping(struct libusb_device_handle* devh, int clkn_offset, int clk100ns_offset);
 int cmd_set_clock(struct libusb_device_handle* devh, u32 clkn);
 uint32_t cmd_get_clock(struct libusb_device_handle* devh);
 int cmd_set_afh_map(struct libusb_device_handle* devh, u8* afh_map);
@@ -130,5 +140,8 @@ int cmd_btle_slave(struct libusb_device_handle* devh, u8 *mac_address);
 int cmd_btle_set_target(struct libusb_device_handle* devh, u8 *mac_address);
 int cmd_set_jam_mode(struct libusb_device_handle* devh, int mode);
 int cmd_ego(struct libusb_device_handle* devh, int mode);
+int cmd_afh(struct libusb_device_handle* devh);
+int cmd_hop(struct libusb_device_handle* devh);
+int32_t cmd_api_version(struct libusb_device_handle* devh);
 
 #endif /* __UBERTOOTH_CONTROL_H__ */

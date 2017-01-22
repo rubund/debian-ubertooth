@@ -19,23 +19,18 @@
 # Boston, MA 02110-1301, USA.
 #
 
-# Based heavily upon the hackrf cmake setup.
+set(INSTALL_DEFAULT_BINDIR "bin" CACHE STRING
+	"Bin install path, relative to CMAKE_INSTALL_PREFIX")
 
 find_package(BTBB REQUIRED)
 find_package(BLUETOOTH)
 
-# Use pcap only if BTBB supports it and user hasn't explicitly disabled it
-# If user explicitly enables it but BTBB doesn't support it, raise an error
-if( (NOT DEFINED USE_PCAP) OR USE_PCAP )
-	if( USE_PCAP AND (NOT HAVE_BTBB_PCAP) )
-		message( FATAL_ERROR
-			"libbtbb does not support pcap, which is required for USE_PCAP")
-	else()
-		if(HAVE_BTBB_PCAP)
-			add_definitions( -DENABLE_PCAP )
-		endif()
-	endif()
-endif()
+if( ${BUILD_STATIC_BINS} )
+	find_package(USB1 REQUIRED)
+	SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+	SET(BUILD_SHARED_LIBRARIES OFF)
+	SET(CMAKE_EXE_LINKER_FLAGS "-static")
+endif( ${BUILD_STATIC_BINS} )
 
 if(USE_OWN_GNU_GETOPT)
 	include_directories(../getopt)
@@ -48,7 +43,12 @@ if(NOT libubertooth_SOURCE_DIR)
 	LIST(APPEND TOOLS_LINK_LIBS ${LIBUBERTOOTH_LIBRARIES})
 else()
 	include_directories(${libubertooth_SOURCE_DIR}/src)
-	LIST(APPEND TOOLS_LINK_LIBS ubertooth)
+	if( ${BUILD_SHARED_LIB} AND NOT ${BUILD_STATIC_BINS} )
+		LIST(APPEND TOOLS_LINK_LIBS ubertooth)
+	endif( ${BUILD_SHARED_LIB} AND NOT ${BUILD_STATIC_BINS} )
+	if( ${BUILD_STATIC_LIB} OR ${BUILD_STATIC_BINS} )
+		LIST(APPEND TOOLS_LINK_LIBS ubertooth-static)
+	endif( ${BUILD_STATIC_LIB} OR ${BUILD_STATIC_BINS} )
 endif()
 
 include_directories(${LIBUSB_INCLUDE_DIR} ${LIBBTBB_INCLUDE_DIR})
@@ -59,7 +59,7 @@ if(USE_OWN_GNU_GETOPT)
 	LIST(APPEND TOOLS_LINK_LIBS libgetopt_static)
 endif(USE_OWN_GNU_GETOPT)
 
-LIST(APPEND TOOLS ubertooth-rx ubertooth-dump ubertooth-util ubertooth-btle ubertooth-dfu ubertooth-specan ubertooth-ego)
+LIST(APPEND TOOLS ubertooth-rx ubertooth-tx ubertooth-dump ubertooth-util ubertooth-btle ubertooth-dfu ubertooth-specan ubertooth-ego ubertooth-afh)
 
 if( USE_BLUEZ AND NOT ${LIBBLUETOOTH_FOUND} )
 	message( FATAL_ERROR

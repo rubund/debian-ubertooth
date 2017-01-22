@@ -27,9 +27,8 @@
 #include "cc2400.h"
 #include "ubertooth_interface.h"
 
-#define IAP_LOCATION 0x1FFF1FF1
 typedef void (*IAP_ENTRY)(u32[], u32[]);
-static IAP_ENTRY iap_entry = (IAP_ENTRY)IAP_LOCATION;
+extern const IAP_ENTRY iap_entry;
 
 /* operating modes */
 enum operating_modes {
@@ -47,6 +46,9 @@ enum operating_modes {
 	MODE_RESET         = 11,
 	MODE_BT_SLAVE_LE   = 12,
 	MODE_EGO           = 13,
+	MODE_AFH           = 14,
+	MODE_RX_GENERIC    = 15,
+	MODE_TX_GENERIC    = 16,
 };
 
 /* hardware identification number */
@@ -324,7 +326,8 @@ u16 cc2400_get(u8 reg);
 void cc2400_set(u8 reg, u16 val);
 u8 cc2400_get8(u8 reg);
 void cc2400_set8(u8 reg, u8 val);
-void cc2400_spi_buf(u8 reg, u8 len, u8 *data);
+void cc2400_fifo_write(u8 len, u8 *data);
+void cc2400_fifo_read(u8 len, u8 *buf);
 u8 cc2400_status(void);
 u8 cc2400_strobe(u8 reg);
 void cc2400_reset(void);
@@ -335,5 +338,8 @@ void cc2400_tune_rx(uint16_t channel);
 void cc2400_tune_tx(uint16_t channel);
 void cc2400_hop_rx(uint16_t channel);
 void cc2400_hop_tx(uint16_t channel);
+void get_part_num(uint8_t *buffer, int *len);
+void get_device_serial(uint8_t *buffer, int *len);
+void set_isp(void);
 
 #endif /* __UBERTOOTH_H */

@@ -25,12 +25,11 @@
 u8 a1, b, c1, e;
 u16 d1;
 /* frequency register bank */
-u8 bank[CHANNELS];
-u8 afh_bank[CHANNELS];
-u8 used_channels;
+u8 bank[NUM_BREDR_CHANNELS];
+u8 afh_bank[NUM_BREDR_CHANNELS];
 
 /* count the number of 1 bits in a uint64_t */
-uint8_t count_bits(uint64_t n)
+static uint8_t count_bits(uint64_t n)
 {
 	uint8_t i = 0;
 	for (i = 0; n != 0; i++)
@@ -47,8 +46,8 @@ void precalc(void)
 	syncword = 0;
 
 	/* populate frequency register bank*/
-	for (i = 0; i < CHANNELS; i++)
-		bank[i] = ((i * 2) % CHANNELS);
+	for (i = 0; i < NUM_BREDR_CHANNELS; i++)
+		bank[i] = ((i * 2) % NUM_BREDR_CHANNELS);
 		/* actual frequency is 2402 + bank[i] MHz */
 
 
@@ -74,15 +73,16 @@ void precalc(void)
 		for(i = 0; i < 10; i++)
 			used_channels += count_bits((uint64_t) afh_map[i]);
 		j = 0;
-		for (i = 0; i < CHANNELS; i++)
-			chan = (i * 2) % CHANNELS;
+		for (i = 0; i < NUM_BREDR_CHANNELS; i++) {
+			chan = (i * 2) % NUM_BREDR_CHANNELS;
 			if(afh_map[chan/8] & (0x1 << (chan % 8)))
 				bank[j++] = chan;
+		}
 	}
 }
 
 /* 5 bit permutation */
-u8 perm5(u8 z, u8 p_high, u16 p_low)
+static u8 perm5(u8 z, u8 p_high, u16 p_low)
 {
 	/* z is constrained to 5 bits, p_high to 5 bits, p_low to 9 bits */
 	z &= 0x1f;
@@ -91,8 +91,8 @@ u8 perm5(u8 z, u8 p_high, u16 p_low)
 
 	int i;
 	u8 tmp, output, z_bit[5], p[14];
-	u8 index1[] = {0, 2, 1, 3, 0, 1, 0, 3, 1, 0, 2, 1, 0, 1};
-	u8 index2[] = {1, 3, 2, 4, 4, 3, 2, 4, 4, 3, 4, 3, 3, 2};
+	static const u8 index1[] = {0, 2, 1, 3, 0, 1, 0, 3, 1, 0, 2, 1, 0, 1};
+	static const u8 index2[] = {1, 3, 2, 4, 4, 3, 2, 4, 4, 3, 4, 3, 3, 2};
 
 	/* bits of p_low and p_high are control signals */
 	for (i = 0; i < 9; i++)
@@ -146,7 +146,7 @@ u16 next_hop(u32 clock)
 		(y1 * 0x1f) ^ c,
 		d);
 	/* hop selection */
-	next_channel = bank[(perm + e + f + y2) % CHANNELS];
+	next_channel = bank[(perm + e + f + y2) % NUM_BREDR_CHANNELS];
 	if(afh_enabled) {
 		f_dash = base_f % used_channels;
 		next_channel = afh_bank[(perm + e + f_dash + y2) % used_channels];
@@ -173,7 +173,7 @@ int find_access_code(u8 *idle_rxbuf)
 	// Search until we're 64 symbols from the end of the buffer
 	for(; count < ((8 * DMA_SIZE) - 64); count++)
 	{
-		bit_errors = count_bits(syncword ^ target.access_code);
+		bit_errors = count_bits(syncword ^ target.syncword);
 
 		if (bit_errors < MAX_SYNCWORD_ERRS)
 			return count;

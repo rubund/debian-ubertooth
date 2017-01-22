@@ -29,14 +29,9 @@
 #include <err.h>
 
 #include "ubertooth.h"
+#include "ubertooth_callback.h"
 #include <btbb.h>
 #include <getopt.h>
-
-extern int max_ac_errors;
-extern btbb_piconet *follow_pn;
-extern FILE *dumpfile;
-
-struct libusb_device_handle *devh = NULL;
 
 static void usage()
 {
@@ -47,9 +42,7 @@ static void usage()
 	printf("\t-u<UAP> (in hexadecimal)\n");
 	printf("\t-U<0-7> set ubertooth device to use\n");
 	printf("\t-r<filename> capture packets to PCAPNG file\n");
-#ifdef ENABLE_PCAP
 	printf("\t-q<filename> capture packets to PCAP file\n");
-#endif
 	printf("\t-e max_ac_errors\n");
 	printf("\t-d filename\n");
 	printf("\t-a Enable AFH\n");
@@ -68,7 +61,7 @@ int main(int argc, char *argv[])
 	uint8_t mode, afh_map[10];
 	char *end, ubertooth_device = -1;
 	char *bt_dev = "hci0";
-    char addr[19] = { 0 };
+	char addr[19] = { 0 };
 	uint32_t clock;
 	uint16_t accuracy, handle, offset;
 	bdaddr_t bdaddr;
@@ -76,8 +69,8 @@ int main(int argc, char *argv[])
 	struct hci_dev_info di;
 	int cc = 0;
 
-
 	pn = btbb_piconet_new();
+	ubertooth_t* ut = ubertooth_init();
 
 	while ((opt=getopt(argc,argv,"hl:u:U:e:d:ab:w:r:q:")) != EOF) {
 		switch(opt) {
@@ -97,8 +90,8 @@ int main(int argc, char *argv[])
 			ubertooth_device = atoi(optarg);
 			break;
 		case 'r':
-			if (!h_pcapng_bredr) {
-				if (btbb_pcapng_create_file( optarg, "Ubertooth", &h_pcapng_bredr )) {
+			if (!ut->h_pcapng_bredr) {
+				if (btbb_pcapng_create_file( optarg, "Ubertooth", &ut->h_pcapng_bredr )) {
 					err(1, "create_bredr_capture_file: ");
 				}
 			}
@@ -106,10 +99,9 @@ int main(int argc, char *argv[])
 				printf("Ignoring extra capture file: %s\n", optarg);
 			}
 			break;
-#ifdef ENABLE_PCAP
 		case 'q':
-			if (!h_pcap_bredr) {
-				if (btbb_pcap_create_file(optarg, &h_pcap_bredr)) {
+			if (!ut->h_pcap_bredr) {
+				if (btbb_pcap_create_file(optarg, &ut->h_pcap_bredr)) {
 					err(1, "btbb_pcap_create_file: ");
 				}
 			}
@@ -117,7 +109,6 @@ int main(int argc, char *argv[])
 				printf("Ignoring extra capture file: %s\n", optarg);
 			}
 			break;
-#endif
 		case 'e':
 			max_ac_errors = atoi(optarg);
 			break;
@@ -172,7 +163,7 @@ int main(int argc, char *argv[])
 		);
 		str2ba(addr, &bdaddr);
 		printf("Address: %s\n", addr);
-	
+
 		if (hci_devinfo(dev_id, &di) < 0) {
 			perror("Can't get device info");
 			return 1;
@@ -195,13 +186,13 @@ int main(int argc, char *argv[])
 			usage();
 			return 1;
 	}
-	
-	if (h_pcapng_bredr) {
-		btbb_pcapng_record_bdaddr(h_pcapng_bredr,
-								  (((uint32_t)uap)<<24)|lap,
-								  0xff, 0);
+
+	if (ut->h_pcapng_bredr) {
+		btbb_pcapng_record_bdaddr(ut->h_pcapng_bredr,
+		                            (((uint32_t)uap)<<24)|lap,
+		                            0xff, 0);
 	}
-	
+
 	//Experimental AFH map reading from remote device
 	if(afh_enabled) {
 		if(hci_read_afh_map(sock, handle, &mode, afh_map, 1000) < 0) {
@@ -222,24 +213,54 @@ int main(int argc, char *argv[])
 		usleep(10000);
 		hci_disconnect(sock, handle, HCI_OE_USER_ENDED_CONNECTION, 10000);
 	}
-	
+
 	/* Clean up on exit. */
-	register_cleanup_handler(devh);
-	
-	devh = ubertooth_start(ubertooth_device);
-	if (devh == NULL) {
+	register_cleanup_handler(ut, 0);
+
+	ubertooth_connect(ut, ubertooth_device);
+	if (ut == NULL) {
 		usage();
 		return 1;
 	}
-	cmd_set_bdaddr(devh, btbb_piconet_get_bdaddr(pn));
+
+	int r = ubertooth_check_api(ut);
+	if (r < 0)
+		return 1;
+
+	r = btbb_init(max_ac_errors);
+	if (r < 0)
+		return 1;
+
+	// init USB transfer
+	r = ubertooth_bulk_init(ut);
+	if (r < 0)
+		return r;
+
+	r = ubertooth_bulk_thread_start();
+	if (r < 0)
+		return r;
+
+	cmd_set_bdaddr(ut->devh, btbb_piconet_get_bdaddr(pn));
+	cmd_set_clock(ut->devh, 0);
 	if(afh_enabled)
-		cmd_set_afh_map(devh, afh_map);
+		cmd_set_afh_map(ut->devh, afh_map);
 	btbb_piconet_set_clk_offset(pn, clock+delay);
 	btbb_piconet_set_flag(pn, BTBB_FOLLOWING, 1);
 	btbb_piconet_set_flag(pn, BTBB_CLK27_VALID, 1);
-	follow_pn = pn;
-	rx_live(devh, pn, 0);
-	ubertooth_stop(devh);
+
+	// tell ubertooth to start hopping and send packets
+	r = cmd_start_hopping(ut->devh, btbb_piconet_get_clk_offset(pn), 0);
+	if (r < 0)
+		return r;
+
+	// receive and process each packet
+	while(!ut->stop_ubertooth) {
+		ubertooth_bulk_receive(ut, cb_rx, pn);
+	}
+
+	ubertooth_bulk_thread_stop();
+
+	ubertooth_stop(ut);
 
 	return 0;
 }

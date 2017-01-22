@@ -23,10 +23,55 @@
 #include <stdlib.h>
 #include "ubertooth.h"
 
-extern u8 debug;
-extern FILE *dumpfile;
+uint8_t debug;
 
-struct libusb_device_handle *devh = NULL;
+void cb_specan(ubertooth_t* ut __attribute__((unused)), void* args)
+{
+	uint16_t high_freq = (((uint8_t*)args)[0]) |
+	                     (((uint8_t*)args)[1] << 8);
+	uint8_t output_mode = ((uint8_t*)args)[2];
+
+	usb_pkt_rx rx = fifo_pop(ut->fifo);
+	int r, j;
+	uint16_t frequency;
+	int8_t rssi;
+
+	/* process each received block */
+	for (j = 0; j < DMA_SIZE-2; j += 3) {
+		frequency = (rx.data[j] << 8) | rx.data[j + 1];
+		rssi = (int8_t)rx.data[j + 2];
+		switch(output_mode) {
+			case SPECAN_FILE:
+				r = fwrite(&rx.data[j], 1, 3, dumpfile);
+				if(r != 3) {
+					fprintf(stderr, "Error writing to file (%d)\n", r);
+					return;
+				}
+				break;
+			case SPECAN_STDOUT:
+				printf("%f, %d, %d\n", ((double)rx.clk100ns)/10000000,
+				       frequency, rssi);
+				break;
+			case SPECAN_GNUPLOT_NORMAL:
+				printf("%d %d\n", frequency, rssi);
+				if(frequency == high_freq)
+					printf("\n");
+				break;
+			case SPECAN_GNUPLOT_3D:
+				printf("%f %d %d\n", ((double)rx.clk100ns)/10000000,
+				       frequency, rssi);
+				if(frequency == high_freq)
+					printf("\n");
+				break;
+			default:
+				fprintf(stderr, "Unrecognised output mode (%d)\n",
+				        output_mode);
+				return;
+				break;
+		}
+	}
+	fflush(stderr);
+}
 
 static void usage(FILE *file)
 {
@@ -47,6 +92,8 @@ int main(int argc, char *argv[])
 	int opt, r = 0, output_mode = SPECAN_STDOUT;
 	int lower= 2402, upper= 2480;
 	char ubertooth_device = -1;
+
+	ubertooth_t* ut = NULL;
 
 	while ((opt=getopt(argc,argv,"vhgGd:l::u::U:")) != EOF) {
 		switch(opt) {
@@ -95,23 +142,48 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	devh = ubertooth_start(ubertooth_device);
+	ut = ubertooth_start(ubertooth_device);
 
-	if (devh == NULL) {
+	if (ut == NULL) {
 		usage(stderr);
 		return 1;
 	}
-	
+
+	r = ubertooth_check_api(ut);
+	if (r < 0)
+		return 1;
+
 	/* Clean up on exit. */
-	register_cleanup_handler(devh);
-	
-	while (1) {
-		r = specan(devh, 512, lower, upper, output_mode);
-		if(r<0)
-			break;
+	register_cleanup_handler(ut, 0);
+
+	uint8_t specan_args[] = {
+		(uint8_t)(upper & 0xff),
+		(uint8_t)(upper >> 8),
+		output_mode
+	};
+
+	// init USB transfer
+	r = ubertooth_bulk_init(ut);
+	if (r < 0)
+		return r;
+
+	r = ubertooth_bulk_thread_start();
+	if (r < 0)
+		return r;
+
+	// tell ubertooth to start specan and send packets
+	r = cmd_specan(ut->devh, lower, upper);
+	if (r < 0)
+		return r;
+
+	// receive and process each packet
+	while(!ut->stop_ubertooth) {
+		ubertooth_bulk_receive(ut, cb_specan, specan_args);
 	}
 
-	ubertooth_stop(devh);
+	ubertooth_bulk_thread_stop();
+
+	ubertooth_stop(ut);
 	fprintf(stderr, "Ubertooth stopped\n");
 	return r;
 }

@@ -20,6 +20,7 @@
  */
 
 #include "ubertooth.h"
+#include "ubertooth_callback.h"
 #include <ctype.h>
 #include <err.h>
 #include <getopt.h>
@@ -27,7 +28,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-struct libusb_device_handle *devh = NULL;
+ubertooth_t* ut = NULL;
 
 static void usage(void)
 {
@@ -77,22 +78,26 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	devh = ubertooth_start(ubertooth_device);
-	if (devh == NULL) {
+	ut = ubertooth_start(ubertooth_device);
+	if (ut == NULL) {
 		usage();
 		return 1;
 	}
 
+	r = ubertooth_check_api(ut);
+	if (r < 0)
+		return 1;
+
 	/* Clean up on exit. */
-	register_cleanup_handler(devh);
+	register_cleanup_handler(ut, 1);
 
 	if (do_mode >= 0) {
-		usb_pkt_rx pkt;
+		usb_pkt_rx rx;
 
 		if (do_mode == 1) // FIXME magic number!
-			cmd_set_channel(devh, do_channel);
+			cmd_set_channel(ut->devh, do_channel);
 
-		r = cmd_ego(devh, do_mode);
+		r = cmd_ego(ut->devh, do_mode);
 		if (r < 0) {
 			if (do_mode == 0 || do_mode == 1)
 				printf("Error: E-GO not supported by this firmware\n");
@@ -102,16 +107,18 @@ int main(int argc, char *argv[])
 		}
 
 		while (1) {
-			int r = cmd_poll(devh, &pkt);
+			int r = cmd_poll(ut->devh, &rx);
 			if (r < 0) {
 				printf("USB error\n");
 				break;
 			}
-			if (r == sizeof(usb_pkt_rx))
-				cb_ego(NULL, &pkt, 0);
+			if (r == sizeof(usb_pkt_rx)) {
+				fifo_push(ut->fifo, &rx);
+				cb_ego(ut, NULL);
+			}
 			usleep(500);
 		}
-		ubertooth_stop(devh);
+		ubertooth_stop(ut);
 	}
 
 	return 0;

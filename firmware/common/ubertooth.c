@@ -20,6 +20,10 @@
  */
 
 #include "ubertooth.h"
+
+#define IAP_LOCATION 0x1FFF1FF1
+const IAP_ENTRY iap_entry = (IAP_ENTRY)IAP_LOCATION;
+
 /* delay a number of seconds while on internal oscillator (4 MHz) */
 void wait(u8 seconds)
 {
@@ -326,10 +330,17 @@ void cc2400_set8(u8 reg, u8 val)
 	cc2400_spi(16, out);
 }
 
+static volatile u32 delay_counter;
+static void spi_delay() {
+       delay_counter = 10;
+       while (--delay_counter);
+}
+
+
 /* write multiple bytes to SPI */
-void cc2400_spi_buf(u8 reg, u8 len, u8 *data)
-{
+void cc2400_fifo_write(u8 len, u8 *data) {
 	u8 msb = 1 << 7;
+	u8 reg = FIFOREG;
 	u8 i, j, temp;
 
 	/* start transaction by dropping CSN */
@@ -363,8 +374,48 @@ void cc2400_spi_buf(u8 reg, u8 len, u8 *data)
 		SCLK_SET;
 		SCLK_CLR;
 	}
+	
+	spi_delay();
+	/* end transaction by raising CSN */
+	CSN_SET;
+}
+
+/* read multiple bytes from SPI */
+void cc2400_fifo_read(u8 len, u8 *buf) {
+	u8 msb = 1 << 7;
+	u8 i, j, temp, reg;
+	// Set first bit because it's a read
+	reg = 0x80 | FIFOREG;
+
+	/* start transaction by dropping CSN */
+	CSN_CLR;
+
+	for (i = 0; i < 8; ++i) {
+		if (reg & msb)
+			MOSI_SET;
+		else
+			MOSI_CLR;
+		reg <<= 1;
+		SCLK_SET;
+		SCLK_CLR;
+	}
+
+	for (i = 0; i < len; ++i) {
+		temp = 0;
+		for (j = 0; j < 8; ++j) {
+			spi_delay();
+			SCLK_SET;
+			temp <<= 1;
+			if (MISO)
+				temp |= 1;
+			spi_delay();
+			SCLK_CLR;
+		}
+		buf[i] = temp;
+	}
 
 	/* end transaction by raising CSN */
+	spi_delay();
 	CSN_SET;
 }
 
@@ -568,6 +619,55 @@ void cc2400_hop_tx(uint16_t channel)
 	cc2400_strobe(SFSON);
 	while (!(cc2400_status() & FS_LOCK));
 	cc2400_strobe(SRX);
+}
+
+void get_part_num(uint8_t *buffer, int *len)
+{
+	u32 command[5];
+	u32 result[5];
+	command[0] = 54; /* read part number */
+	iap_entry(command, result);
+	buffer[0] = result[0] & 0xFF; /* status */
+	buffer[1] = result[1] & 0xFF;
+	buffer[2] = (result[1] >> 8) & 0xFF;
+	buffer[3] = (result[1] >> 16) & 0xFF;
+	buffer[4] = (result[1] >> 24) & 0xFF;
+	*len = 5;
+	
+}
+
+void get_device_serial(uint8_t *buffer, int *len)
+{
+	u32 command[5];
+	u32 result[5];
+	command[0] = 58; /* read device serial number */
+	iap_entry(command, result);
+	buffer[0] = result[0] & 0xFF; /* status */
+	buffer[1] = result[1] & 0xFF;
+	buffer[2] = (result[1] >> 8) & 0xFF;
+	buffer[3] = (result[1] >> 16) & 0xFF;
+	buffer[4] = (result[1] >> 24) & 0xFF;
+	buffer[5] = result[2] & 0xFF;
+	buffer[6] = (result[2] >> 8) & 0xFF;
+	buffer[7] = (result[2] >> 16) & 0xFF;
+	buffer[8] = (result[2] >> 24) & 0xFF;
+	buffer[9] = result[3] & 0xFF;
+	buffer[10] = (result[3] >> 8) & 0xFF;
+	buffer[11] = (result[3] >> 16) & 0xFF;
+	buffer[12] = (result[3] >> 24) & 0xFF;
+	buffer[13] = result[4] & 0xFF;
+	buffer[14] = (result[4] >> 8) & 0xFF;
+	buffer[15] = (result[4] >> 16) & 0xFF;
+	buffer[16] = (result[4] >> 24) & 0xFF;
+	*len = 17;
+}
+
+void set_isp(void)
+{
+	u32 command[5];
+	u32 result[5];
+	command[0] = 57;
+	iap_entry(command, result);
 }
 
 //FIXME ssp
