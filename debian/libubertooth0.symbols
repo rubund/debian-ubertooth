@@ -55,13 +55,7 @@ libubertooth.so.0 libubertooth0 #MINVER#
  cmd_start_hopping@Base 2015.09.R2
  cmd_stop@Base 2015.09.R2
  cmd_tx_test@Base 2015.09.R2
- debug@Base 2015.09.R2
  dumpfile@Base 2015.09.R2
- follow_pn@Base 2015.09.R2
- h_pcap_bredr@Base 2015.09.R2
- h_pcap_le@Base 2015.09.R2
- h_pcapng_bredr@Base 2015.09.R2
- h_pcapng_le@Base 2015.09.R2
  infile@Base 2015.09.R2
  max_ac_errors@Base 2015.09.R2
  print_serial@Base 2015.09.R2
@@ -69,13 +63,44 @@ libubertooth.so.0 libubertooth0 #MINVER#
  register_cleanup_handler@Base 2015.09.R2
  rx_btle_file@Base 2015.09.R2
  rx_dump@Base 2015.09.R2
- rx_file@Base 2015.09.R2
- rx_live@Base 2015.09.R2
- set_timeout@Base 2015.09.R2
  show_libusb_error@Base 2015.09.R2
- specan@Base 2015.09.R2
  stop_transfers@Base 2015.09.R2
  stream_rx_file@Base 2015.09.R2
- stream_rx_usb@Base 2015.09.R2
  ubertooth_start@Base 2015.09.R2
  ubertooth_stop@Base 2015.09.R2
+ cb_afh_initial@Base 2015.10.R1+20161126gitf85a6a2
+ cb_afh_monitor@Base 2015.10.R1+20161126gitf85a6a2
+ cb_afh_r@Base 2015.10.R1+20161126gitf85a6a2
+ cb_rx@Base 2015.10.R1+20161126gitf85a6a2
+ cb_scan@Base 2015.10.R1+20161126gitf85a6a2
+ cmd_afh@Base 2015.10.R1+20161126gitf85a6a2
+ cmd_api_version@Base 2015.10.R1+20161126gitf85a6a2
+ cmd_fix_clock_drift@Base 2015.10.R1+20161126gitf85a6a2
+ cmd_hop@Base 2015.10.R1+20161126gitf85a6a2
+ cmd_trim_clock@Base 2015.10.R1+20161126gitf85a6a2
+ cmd_tx_syms@Base 2015.10.R1+20161126gitf85a6a2
+ do_exit@Base 2015.10.R1+20161126gitf85a6a2
+ fifo_empty@Base 2015.10.R1+20161126gitf85a6a2
+ fifo_get_write_element@Base 2015.10.R1+20161126gitf85a6a2
+ fifo_inc_write_ptr@Base 2015.10.R1+20161126gitf85a6a2
+ fifo_init@Base 2015.10.R1+20161126gitf85a6a2
+ fifo_pop@Base 2015.10.R1+20161126gitf85a6a2
+ fifo_push@Base 2015.10.R1+20161126gitf85a6a2
+ packet_counter_max@Base 2015.10.R1+20161126gitf85a6a2
+ poll_thread@Base 2015.10.R1+20161126gitf85a6a2
+ rx_afh@Base 2015.10.R1+20161126gitf85a6a2
+ rx_afh_r@Base 2015.10.R1+20161126gitf85a6a2
+ systime@Base 2015.10.R1+20161126gitf85a6a2
+ timeout_dev@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_bulk_init@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_bulk_receive@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_bulk_thread_start@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_bulk_thread_stop@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_bulk_wait@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_check_api@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_cmd_async@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_cmd_sync@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_connect@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_init@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_set_timeout@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_unpack_symbols@Base 2015.10.R1+20161126gitf85a6a2
