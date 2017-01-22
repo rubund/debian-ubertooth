@@ -6,22 +6,14 @@ Author: Ruben Undheim <ruben.undheim@gmail.com>
 
 Index: ubertooth/firmware/common.mk
 ===================================================================
---- ubertooth.orig/firmware/common.mk	2015-09-09 20:00:39.516969168 +0200
-+++ ubertooth/firmware/common.mk	2015-09-09 20:01:33.184135714 +0200
-@@ -257,11 +257,12 @@
+--- ubertooth.orig/firmware/common.mk	2017-01-22 11:21:49.060809296 +0100
++++ ubertooth/firmware/common.mk	2017-01-22 11:22:28.523474935 +0100
+@@ -259,7 +259,8 @@
  REMOVE = rm -f
  
- # 
--ifeq ($(strip $(shell which ubertooth-dfu)),)
--  $(error ubertooth-dfu not found!)
--else
--  DFU_TOOL ?= $(shell which ubertooth-dfu)
--endif
-+#ifeq ($(strip $(shell which ubertooth-dfu)),)
-+#  $(error ubertooth-dfu not found!)
-+#else
-+#  DFU_TOOL ?= $(shell which ubertooth-dfu)
-+#endif
+ # DFU tool should be ubertooth-dfu
+-DFU_TOOL ?= $(strip $(shell which ubertooth-dfu))
++#DFU_TOOL ?= $(strip $(shell which ubertooth-dfu))
 +DFU_TOOL = ../../obj-$(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)/ubertooth-tools/src/ubertooth-dfu
  
  # Define Messages

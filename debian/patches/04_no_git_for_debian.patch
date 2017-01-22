@@ -6,11 +6,11 @@ Author: Ruben Undheim <ruben.undheim@gmail.com>
 
 Index: ubertooth/firmware/common.mk
 ===================================================================
---- ubertooth.orig/firmware/common.mk	2015-09-09 19:59:33.766061385 +0200
-+++ ubertooth/firmware/common.mk	2015-09-09 19:59:36.000000000 +0200
-@@ -50,13 +50,13 @@
- # comment to disable RF transmission
- UBERTOOTH_OPTS += -DTX_ENABLE
+--- ubertooth.orig/firmware/common.mk	2017-01-22 11:22:35.631519826 +0100
++++ ubertooth/firmware/common.mk	2017-01-22 11:22:35.627519782 +0100
+@@ -52,13 +52,13 @@
+ 	UBERTOOTH_OPTS += -DTX_ENABLE
+ endif
  
 -DIRTY = $(shell git status -s --untracked-files=no)
 -ifneq ($(DIRTY), )
