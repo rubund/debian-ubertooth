@@ -14,7 +14,7 @@ Build-Depends: debhelper (>= 9),
                gcc-arm-none-eabi,
                libnewlib-arm-none-eabi,
                libstdc++-arm-none-eabi-newlib
-Standards-Version: 3.9.7
+Standards-Version: 3.9.8
 Vcs-Browser: https://github.com/rubund/debian-ubertooth/tree/master
 Vcs-Git: https://github.com/rubund/debian-ubertooth.git
 Homepage: http://ubertooth.sourceforge.net/
