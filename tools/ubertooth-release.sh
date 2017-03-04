@@ -1,32 +1,26 @@
 #!/bin/bash
 
-if test $# -lt 1 ; then
-	echo "Run from the base of the Ubertooth repository, on the release branch"
-    echo "usage: ./ubertooth-release.sh <previous release> [release branch name]"
-    exit
-fi
+# "Run from the base of the Ubertooth repository, on the release branch (probably master)
+# usage: tools/ubertooth-release.sh <release version name>
 
-if test $# -lt 2 ; then
-	branch=`git rev-parse --abbrev-ref HEAD`
+
+if test $# -lt 1 ; then
+	version=`git rev-parse --abbrev-ref HEAD`
 else
-	branch=${2}
-	# Not sure this is really a good idea, better to make
-	# sure that you're on the branch in the first place
-	#git checkout ${2}
+	version=${1}
 fi
 
 # FIXME you'll need to update these:
 top="`pwd`/../release"
 
-releasename="ubertooth-${branch}"
+releasename="ubertooth-${version}"
 targetdir="${top}/${releasename}"
-# Previous release, this is laziness to not have to rebuild the hardware files
-originaldir="${top}/ubertooth-${1}"
 
 mkdir -p ${targetdir}
 git archive --format=tar  HEAD | (cd ${targetdir} && tar xf -)
 
-sed -e "s/GIT_DESCRIBE=\".*\"/GIT_DESCRIBE=\"${branch}\"/" -i ${targetdir}/firmware/common.mk
+sed -e "s/GIT_REVISION=\".*\"/GIT_REVISION=\"${version}\"/" -i ${targetdir}/firmware/common.mk
+sed -e "s/set(RELEASE.*/set(RELEASE \"${version}\")/" -i ${targetdir}/host/libubertooth/src/CMakeLists.txt
 
 ############################
 # Documentation
@@ -61,30 +55,13 @@ cp bluetooth_rxtx/bluetooth_rxtx.dfu ${targetdir}/ubertooth-one-firmware-bin/blu
 make clean
 
 ############################
-# Hardware
-############################
-# Do this part by hand if there have been hardware changes since the last release
-cp ${originaldir}/hardware/pogoprog/pogoprog-schematic.pdf ${targetdir}/hardware/pogoprog
-cp ${originaldir}/hardware/pogoprog/pogoprog-assembly.pdf ${targetdir}/hardware/pogoprog
-cp ${originaldir}/hardware/pogoprog/gerbers ${tagetdir}/hardware/pogoprog/
-cp ${originaldir}/hardware/pogoprog/pogoprog-bom.csv ${targetdir}/hardware/pogoprog/pogoprog-bom.csv
-
-cp ${originaldir}/hardware/ubertooth-one/ubertooth-one-schematic.pdf ${targetdir}/hardware/ubertooth-one
-cp ${originaldir}/hardware/ubertooth-one/ubertooth-one-assembly.pdf ${targetdir}/hardware/ubertooth-one
-cp ${originaldir}/hardware/ubertooth-one/gergers ${targetdir}/hardware/ubertooth-one/
-cp ${originaldir}/hardware/ubertooth-one/ubertooth-one-bom.csv ${targetdir}/hardware/ubertooth-one/ubertooth-one-bom.csv
-
-cp ${originaldir}/hardware/tc13badge/tc13badge-schematic.pdf ${targetdir}/hardware/tc13badge/
-cp ${originaldir}/hardware/tc13badge/tc13badge-assembly.pdf ${targetdir}/hardware/tc13badge/
-cp ${originaldir}/hardware/tc13badge/gerbers ${targetdir}/hardware/tc13badge/
-cp ${originaldir}/hardware/tc13badge/tc13badge-bom.csv ${targetdir}/hardware/tc13badge/tc13badge-bom.csv
-
-############################
 # Clean up
 ############################
 cp ${targetdir}/tools/RELEASENOTES ${targetdir}/
 rm -rf ${targetdir}/tools
+rm -rf ${targetdir}/hardware
 rm ${targetdir}/.gitignore
+rm ${targetdir}/.travis.yml
 
 ############################
 # Archive

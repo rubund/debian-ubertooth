@@ -381,7 +381,8 @@ void cb_btle(ubertooth_t* ut, void* args)
 
 	/* Dump to PCAP/PCAPNG if specified */
 	refAA = lell_packet_is_data(pkt) ? 0 : 0x8e89bed6;
-	determine_signal_and_noise( rx, &sig, &noise );
+	sig = cc2400_rssi_to_dbm( rx->rssi_max );
+	noise = INT8_MIN; // FIXME - keep track of this
 
 	if (ut->h_pcap_le) {
 		/* only one of these two will succeed, depending on
@@ -389,6 +390,7 @@ void cb_btle(ubertooth_t* ut, void* args)
 		lell_pcap_append_packet(ut->h_pcap_le, nowns,
 					sig, noise,
 					refAA, pkt);
+		// read the above comment: this function may silently fail
 		lell_pcap_append_ppi_packet(ut->h_pcap_le, nowns,
 		                            rx->clkn_high,
 		                            rx->rssi_min, rx->rssi_max,
@@ -459,7 +461,7 @@ void cb_rx(ubertooth_t* ut, void* args)
 {
 	btbb_packet* pkt = NULL;
 	btbb_piconet* pn = (btbb_piconet *)args;
-	char syms[BANK_LEN];
+	char syms[BANK_LEN*10] = {0};
 	int offset;
 	uint16_t clk_offset;
 	uint32_t clkn;
@@ -517,7 +519,7 @@ void cb_rx(ubertooth_t* ut, void* args)
 	 * and other rx data. CLKN here is the 312.5us CLK27-0. The
 	 * btbb library can shift it be CLK1 if needed. */
 	clkn = (le32toh(rx->clkn_high) << 20) + (le32toh(rx->clk100ns) + offset*10 - 4000) / 3125;
-	btbb_packet_set_data(pkt, syms + offset, BANK_LEN - offset,
+	btbb_packet_set_data(pkt, syms + offset, BANK_LEN*10 - offset,
 	                     rx->channel, clkn);
 
 	/* When reading from file, caller will read
@@ -526,7 +528,6 @@ void cb_rx(ubertooth_t* ut, void* args)
 	if (infile == NULL)
 		systime = time(NULL);
 
-	printf("\n");
 	printf("systime=%u ch=%2d LAP=%06x err=%u clkn=%u clk_offset=%u s=%d n=%d snr=%d\n",
 	       (uint32_t)time(NULL),
 	       btbb_packet_get_channel(pkt),

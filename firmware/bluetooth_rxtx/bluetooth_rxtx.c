@@ -48,7 +48,7 @@ volatile uint16_t channel = 2441;
 volatile uint16_t hop_direct_channel = 0;      // for hopping directly to a channel
 volatile uint16_t hop_timeout = 158;
 volatile uint16_t requested_channel = 0;
-volatile uint16_t saved_request = 0;
+volatile uint16_t le_adv_channel = 2402;
 
 /* bulk USB stuff */
 volatile uint8_t  idle_buf_clkn_high = 0;
@@ -361,6 +361,7 @@ static int vendor_request_handler(uint8_t request, uint16_t* request_params, uin
 			requested_channel = MIN(requested_channel, MAX_FREQ);
 		}
 
+		le_adv_channel = requested_channel;
 		if (mode != MODE_BT_FOLLOW_LE) {
 			channel = requested_channel;
 			requested_channel = 0;
@@ -668,12 +669,6 @@ static int vendor_request_handler(uint8_t request, uint16_t* request_params, uin
 		ego_mode = request_params[0];
 		break;
 
-	case UBERTOOTH_GET_API_VERSION:
-		for (int i = 0; i < 4; ++i)
-			data[i] = (UBERTOOTH_API_VERSION >> (8*i)) & 0xff;
-		*data_len = 4;
-		break;
-
 	default:
 		return 0;
 	}
@@ -847,7 +842,7 @@ static void cc2400_idle()
 	hop_direct_channel = 0;
 	hop_timeout = 158;
 	requested_channel = 0;
-	saved_request = 0;
+	le_adv_channel = 2402;
 
 
 	/* bulk USB stuff */
@@ -1659,7 +1654,6 @@ void bt_le_sync(u8 active_mode)
 			/* RX mode */
 			cc2400_strobe(SRX);
 
-			saved_request = requested_channel;
 			requested_channel = 0;
 		}
 
@@ -1744,7 +1738,12 @@ void bt_le_sync(u8 active_mode)
 
 		RXLED_SET;
 		packet_cb((uint8_t *)packet);
+
+		// disable USB interrupts while we touch USB data structures
+		ICER0 = ICER0_ICE_USB;
 		enqueue(LE_PACKET, (uint8_t *)packet);
+		ISER0 = ISER0_ISE_USB;
+
 		le.last_packet = CLK100NS;
 
 	rx_flush:
@@ -1788,7 +1787,7 @@ void bt_le_sync(u8 active_mode)
 			while ((cc2400_status() & FS_LOCK));
 
 			/* Retune */
-			channel = saved_request != 0 ? saved_request : 2402;
+			channel = le_adv_channel != 0 ? le_adv_channel : 2402;
 			restart_jamming = 1;
 		}
 
