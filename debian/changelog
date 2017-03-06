@@ -1,6 +1,9 @@
 ubertooth (2017-03-R1+20170304git938a4df-1) UNRELEASED; urgency=medium
 
-  * New upstream version
+  * New upstream version (Closes: #852141)
+  * libubertooth0 -> libubertooth1
+  * debian/libubertooth1.symbols:
+    - Added new symbols
 
  -- Ruben Undheim <ruben.undheim@gmail.com>  Sat, 04 Mar 2017 09:13:53 +0100
 
