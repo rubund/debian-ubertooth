@@ -100,7 +100,7 @@ libubertooth.so.1 libubertooth1 #MINVER#
  ubertooth_cmd_async@Base 2015.10.R1+20161126gitf85a6a2
  ubertooth_cmd_sync@Base 2015.10.R1+20161126gitf85a6a2
  ubertooth_connect@Base 2015.10.R1+20161126gitf85a6a2
- ubertooth_get_api@Base 2017-03-R1+20170304git938a4df
+ ubertooth_get_api@Base 2017.03.R2
  ubertooth_init@Base 2015.10.R1+20161126gitf85a6a2
  ubertooth_set_timeout@Base 2015.10.R1+20161126gitf85a6a2
  ubertooth_unpack_symbols@Base 2015.10.R1+20161126gitf85a6a2

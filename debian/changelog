@@ -1,11 +1,12 @@
-ubertooth (2017-03-R1+20170304git938a4df-1) UNRELEASED; urgency=medium
+ubertooth (2017.03.R2-1) experimental; urgency=medium
 
   * New upstream version (Closes: #852141)
   * libubertooth0 -> libubertooth1
   * debian/libubertooth1.symbols:
     - Added new symbols
+  * debian/ubertooth.manpages: Use new upstream man pages instead
 
- -- Ruben Undheim <ruben.undheim@gmail.com>  Sat, 04 Mar 2017 09:13:53 +0100
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Tue, 14 Mar 2017 20:35:32 +0100
 
 ubertooth (2015.09.R2-4) unstable; urgency=medium
 
