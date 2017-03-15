@@ -3,8 +3,10 @@ Upstream-Name: ubertooth
 Source: https://github.com/greatscottgadgets/ubertooth
 
 Files: *
-Copyright: 2010-2015 Mike Ossmann, Dominic Spill, Jared Boone
-           2012-2015 Mike Ryan, Will Code, Christopher Kilgour
+Copyright: 2010-2015 Jared Boone
+           2010-2017 Mike Ossmann, Dominic Spill
+           2012-2015 Will Code, Christopher Kilgour
+           2012-2017 Mike Ryan
 License: GPL-2+
 
 Files: firmware/common/lpcusb/target/usbhw_lpc.c
@@ -54,6 +56,22 @@ License: GPL-3+
 Files: firmware/tc13badge/mkports
 Copyright: 2010 DJ Delorie <dj@redhat.com>
 License: GPL-3+
+
+Files: firmware/bluetooth_rxtx/ubertooth_clock.c
+       firmware/bluetooth_rxtx/ubertooth_clock.h
+       firmware/bluetooth_rxtx/ubertooth_cs.c
+       firmware/bluetooth_rxtx/ubertooth_cs.h
+       firmware/bluetooth_rxtx/ubertooth_dma.c
+       firmware/bluetooth_rxtx/ubertooth_dma.h
+       firmware/bluetooth_rxtx/ubertooth_rssi.c
+       firmware/bluetooth_rxtx/ubertooth_rssi.h
+       host/libubertooth/src/ubertooth_callback.c
+       host/libubertooth/src/ubertooth_callback.h
+       host/libubertooth/src/ubertooth_fifo.c
+       host/libubertooth/src/ubertooth_fifo.h
+       host/libubertooth/src/ubertooth_afh.c
+Copyright: 2015 Hannes Ellinger
+License: GPL-2+
 
 Files: host/cmake/modules/FindUSB1.cmake
 Copyright: 2006,2008 Laurent Montel <montel@kde.org>
