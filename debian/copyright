@@ -69,7 +69,7 @@ Files: firmware/bluetooth_rxtx/ubertooth_clock.c
        host/libubertooth/src/ubertooth_callback.h
        host/libubertooth/src/ubertooth_fifo.c
        host/libubertooth/src/ubertooth_fifo.h
-       host/libubertooth/src/ubertooth_afh.c
+       host/ubertooth-tools/src/ubertooth-afh.c
 Copyright: 2015 Hannes Ellinger
 License: GPL-2+
 
