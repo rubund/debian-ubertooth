@@ -5,9 +5,9 @@ Author: Ruben Undheim <ruben.undheim@gmail.com>
 
 Index: ubertooth/host/libubertooth/src/CMakeLists.txt
 ===================================================================
---- ubertooth.orig/host/libubertooth/src/CMakeLists.txt	2017-01-22 11:23:21.817119310 +0100
-+++ ubertooth/host/libubertooth/src/CMakeLists.txt	2017-01-22 11:23:29.129523893 +0100
-@@ -80,5 +80,5 @@
+--- ubertooth.orig/host/libubertooth/src/CMakeLists.txt
++++ ubertooth/host/libubertooth/src/CMakeLists.txt
+@@ -67,5 +67,5 @@ if( ${BUILD_STATIC_LIB} )
  endif( ${BUILD_STATIC_LIB} )
  
  install(FILES ${c_headers}
