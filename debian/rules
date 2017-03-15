@@ -53,6 +53,8 @@ override_dh_auto_install:
 	dh_auto_install --sourcedirectory=firmware
 	mkdir -p debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig
 	cp debian/ubertooth.pc debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig/
+	rm debian/tmp/usr/bin/ubertooth-tx # The tool does nothing - not fully implemented. Skip installing
+	                                   # TODO: remove line when tool has been implemented
 
 override_dh_installman:
 	cd debian/man ; CHANGELOG_DATE="$(CHANGELOG_DATE)" ./genmanpages.sh

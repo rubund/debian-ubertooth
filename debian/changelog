@@ -11,12 +11,16 @@ ubertooth (2017.03.R2-1) experimental; urgency=medium
     - Set versioned build-dependency on libbtbb-dev
   * debian/copyright:
     - Updated copyright information
+  * debian/man/ubertooth-tx.txt:
+    - New dummy man page for ubertooth-tx not yet
+      included in package
   * debian/patches/0006-Try-fixing-two-lintians.patch
     - Some of the upstream man pages needed to be patch to not
       cause lintians
   * debian/patches/*: All other patches refreshed
   * debian/rules:
     - No need to explicitly override dh_strip anymore
+    - Skip installing ubertooth-tx, since it does not do anything yet.
 
  -- Ruben Undheim <ruben.undheim@gmail.com>  Tue, 14 Mar 2017 20:35:32 +0100
 

@@ -12,3 +12,4 @@ txt2man -d "${CHANGELOG_DATE}" -t UBERTOOTH-DUMP         -s 1 ubertooth-dump.txt
 txt2man -d "${CHANGELOG_DATE}" -t UBERTOOTH-UTIL         -s 1 ubertooth-util.txt       > ubertooth-util.1
 txt2man -d "${CHANGELOG_DATE}" -t UBERTOOTH-EGO          -s 1 ubertooth-ego.txt        > ubertooth-ego.1
 txt2man -d "${CHANGELOG_DATE}" -t UBERTOOTH-SPECAN       -s 1 ubertooth-specan.txt     > ubertooth-specan.1
+txt2man -d "${CHANGELOG_DATE}" -t UBERTOOTH-TX           -s 1 ubertooth-tx.txt         > ubertooth-tx.1
