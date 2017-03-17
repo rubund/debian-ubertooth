@@ -1,4 +1,4 @@
-ubertooth (2017.03.R2-1) experimental; urgency=medium
+ubertooth (2017.03.R2-1~exp1) experimental; urgency=medium
 
   * New upstream version (Closes: #852141)
   * libubertooth0 -> libubertooth1
