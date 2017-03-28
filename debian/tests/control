@@ -1,0 +1,2 @@
+Tests: build_firmware
+Depends: ubertooth-firmware-source

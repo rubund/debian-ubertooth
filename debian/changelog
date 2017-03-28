@@ -1,3 +1,10 @@
+ubertooth (2017.03.R2-1~exp2) UNRELEASED; urgency=medium
+
+  * debian/tests/*:
+    - Added autopkgtest for building firmware from ubertooth-firmware-source.
+
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Wed, 29 Mar 2017 01:28:52 +0200
+
 ubertooth (2017.03.R2-1~exp1) experimental; urgency=medium
 
   * New upstream version (Closes: #852141)
