@@ -96,6 +96,13 @@ Recommends: ubertooth-firmware
 Suggests: ubertooth-firmware-source
 Description: 2.4 GHz wireless development platform for Bluetooth experimentation
  Project Ubertooth is an open source wireless development platform suitable for
- Bluetooth experimentation. Ubertooth ships with a capable BLE (Bluetooth Smart)
- sniffer and can sniff some data from Basic Rate (BR) Bluetooth Classic
+ Bluetooth experimentation. This package contains everything necessary to use
+ the hardware dongle.
+ .
+ Ubertooth is capable of sniffing BLE (Bluetooth Smart) connections and it also
+ has some ability to sniff some data from Basic Rate (BR) Bluetooth Classic
  connections.
+ .
+ In addition to the Bluetooth specific capabilities, there is also a simple
+ spectrum analyzer for the 2.4 GHz band included (ubertooth-specan-ui) which
+ can be used to also observe other things in this frequency band.
