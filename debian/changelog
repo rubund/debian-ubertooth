@@ -1,11 +1,11 @@
-ubertooth (2017.03.R2-1~exp2) UNRELEASED; urgency=low
+ubertooth (2017.03.R2-1~exp2) experimental; urgency=low
 
   * debian/control:
     - Updated long description for binary package ubertooth
   * debian/tests/*:
     - Added autopkgtest for building firmware from ubertooth-firmware-source.
 
- -- Ruben Undheim <ruben.undheim@gmail.com>  Wed, 29 Mar 2017 01:28:52 +0200
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Sat, 01 Apr 2017 07:07:10 +0000
 
 ubertooth (2017.03.R2-1~exp1) experimental; urgency=medium
 
