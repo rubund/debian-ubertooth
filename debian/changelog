@@ -1,3 +1,11 @@
+ubertooth (2017.03.R2-1) unstable; urgency=low
+
+  * Upload to unstable
+  * debian/control:
+    - New standards version 4.0.0 - no changes
+
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Thu, 13 Jul 2017 23:03:25 +0200
+
 ubertooth (2017.03.R2-1~exp2) experimental; urgency=low
 
   * debian/control:
