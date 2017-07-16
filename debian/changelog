@@ -1,10 +1,14 @@
-ubertooth (2017.03.R2-2) UNRELEASED; urgency=low
+ubertooth (2017.03.R2-2) unstable; urgency=low
 
+  * debian/control:
+    - Add "Multi-Arch: foreign" to ubertooth-firmware
   * debian/tests/buildfirmware:
-    - Pipe stderr to stdout for "make" invokation to prevent the CI test
+    - Pipe stderr to stdout for "make" invocation to prevent the CI test
       from failing due to some build warnings.
+  * debian/tests/control:
+    - Explicitly include all test dependencies
 
- -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 14 Jul 2017 08:21:25 +0000
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Sun, 16 Jul 2017 18:40:08 +0000
 
 ubertooth (2017.03.R2-1) unstable; urgency=low
 

@@ -55,6 +55,7 @@ Description: Shared library for Bluetooth experimentation - development files
 
 Package: ubertooth-firmware
 Architecture: all
+Multi-Arch: foreign
 Depends: ${misc:Depends}
 Recommends: ubertooth
 Suggests: ubertooth-firmware-source
