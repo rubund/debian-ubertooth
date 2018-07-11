@@ -1,0 +1,24 @@
+diff -rupN firmware.orig/bootloader/Makefile firmware/bootloader/Makefile
+--- firmware.orig/bootloader/Makefile	2015-09-11 18:47:28.402217627 +0200
++++ firmware/bootloader/Makefile	2015-09-11 18:48:10.748926447 +0200
+@@ -115,7 +115,7 @@ LINKER_SCRIPT = LPC17xx_Linker_Script_bo
+ #     Each directory must be seperated by a space.
+ #     Use forward slashes for directory separators.
+ #     For a directory that has spaces, enclose it in quotes.
+-EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src
++EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src /usr/include/ubertooth
+ 
+ # Compiler flag to set the C Standard level.
+ #     c89   = "ANSI" C
+diff -rupN firmware.orig/common.mk firmware/common.mk
+--- firmware.orig/common.mk	2015-09-11 18:45:44.711406019 +0200
++++ firmware/common.mk	2015-09-11 18:46:55.300946033 +0200
+@@ -115,7 +115,7 @@ LINKER_SCRIPT ?= LPC17xx_Linker_Script_w
+ #     Each directory must be seperated by a space.
+ #     Use forward slashes for directory separators.
+ #     For a directory that has spaces, enclose it in quotes.
+-EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src
++EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src /usr/include/ubertooth
+ 
+ # Compiler flag to set the C Standard level.
+ #     c89   = "ANSI" C

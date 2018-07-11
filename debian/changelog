@@ -9,7 +9,6 @@ ubertooth (2017.03.R2-3) UNRELEASED; urgency=medium
     - New standards version 4.1.5 - no changes
   * Added debian/com.greatscottgadgets.ubertooth.metainfo.xml to announce
     the hardware via AppStream
-  * Remove unused patch file: debian/patches/patch_include_source.patch
 
  -- Ruben Undheim <ruben.undheim@gmail.com>  Wed, 11 Jul 2018 12:54:21 +0200
 
