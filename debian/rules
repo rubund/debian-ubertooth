@@ -10,6 +10,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 SOURCE_DATE ?= $(shell dpkg-parsechangelog --show-field Date)
 SOURCE_DATE_UTC ?= $(shell LC_ALL=C date -u -d "$(SOURCE_DATE)")
 CHANGELOG_DATE ?= $(shell LC_ALL=C date -u -d "$(SOURCE_DATE)" +"%d %B %Y")
+DOPACKAGES = $(shell dh_listpackages)
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
@@ -38,19 +39,25 @@ override_dh_auto_configure:
 	
 	dh_auto_configure --sourcedirectory=host -- -DLIB_SUFFIX=/$(DEB_HOST_MULTIARCH) \
 	  -DUBERTOOTH_GROUP=plugdev -DUDEV_RULES_PATH=/lib/udev/rules.d
+ifneq ($(filter ubertooth-firmware,$(DOPACKAGES)),)
 	dh_auto_configure --sourcedirectory=firmware
+endif
 
 override_dh_auto_build:
 	dh_auto_build --sourcedirectory=host
+ifneq ($(filter ubertooth-firmware,$(DOPACKAGES)),)
 	dh_auto_build --sourcedirectory=firmware -- TIMESTAMP="-DTIMESTAMP=''" \
 	  COMPILE_BY="-D'COMPILE_BY=\"user\"'" COMPILE_HOST="-D'COMPILE_HOST=\"localhost\"'"
+endif
 	cat debian/ubertooth.pc.in | sed 's/DEB_HOST_MULTIARCH/$(DEB_HOST_MULTIARCH)/' | \
 	  sed 's/UPSTREAM_PACKAGE_VERSION/$(UPSTREAM_PACKAGE_VERSION)/' > debian/ubertooth.pc
 
 override_dh_auto_install:
-	chmod a-x firmware/*/*.bin
 	dh_auto_install --sourcedirectory=host
+ifneq ($(filter ubertooth-firmware,$(DOPACKAGES)),)
+	chmod a-x firmware/*/*.bin
 	dh_auto_install --sourcedirectory=firmware
+endif
 	mkdir -p debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig
 	cp debian/ubertooth.pc debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig/
 	rm debian/tmp/usr/bin/ubertooth-tx # The tool does nothing - not fully implemented. Skip installing
