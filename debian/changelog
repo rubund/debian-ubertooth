@@ -4,8 +4,22 @@ ubertooth (2018.06.R1-1) unstable; urgency=medium
   * Refreshed patches. Using gbp-pq
   * debian/control:
     - Depend on newer version of libbtbb: 2018.06.R1
+  * debian/com.greatscottgadgets.ubertooth.metainfo.xml
+    - Fix formatting of vendor and product IDs
+  * debian/copyright:
+    - Copyright information for some new files
+    - Use https protocol in Format field
+  * debian/libubertooth1.symbols:
+    - Two new symbols
+  * debian/rules:
+    - Replace dpkg-parsechangelog with include /usr/share/dpkg/pkg-info.mk
+  * debian/source/lintian-overrides:
+    - ignore lintian for patch file which is used in debian/rules
+  * debian/ubertooth-firmware.lintian-overrides:
+    - ignore lintian for package name "-firmware", since it is firmware
+      for external USB device, and not for the Linux kernel.
 
- -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 13 Jul 2018 16:37:42 +0200
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 13 Jul 2018 20:06:07 +0200
 
 ubertooth (2017.03.R2-3) unstable; urgency=medium
 
