@@ -6,6 +6,7 @@ libubertooth.so.1 libubertooth1 #MINVER#
  cmd_btle_set_target@Base 2015.09.R2
  cmd_btle_slave@Base 2015.09.R2
  cmd_btle_sniffing@Base 2015.09.R2
+ cmd_cancel_follow@Base 2018.06.R1
  cmd_clear_afh_map@Base 2015.09.R2
  cmd_do_something@Base 2015.09.R2
  cmd_do_something_reply@Base 2015.09.R2
@@ -99,6 +100,7 @@ libubertooth.so.1 libubertooth1 #MINVER#
  ubertooth_check_api@Base 2015.10.R1+20161126gitf85a6a2
  ubertooth_cmd_async@Base 2015.10.R1+20161126gitf85a6a2
  ubertooth_cmd_sync@Base 2015.10.R1+20161126gitf85a6a2
+ ubertooth_count@Base 2018.06.R1
  ubertooth_connect@Base 2015.10.R1+20161126gitf85a6a2
  ubertooth_get_api@Base 2017.03.R2
  ubertooth_init@Base 2015.10.R1+20161126gitf85a6a2
