@@ -39,7 +39,9 @@ volatile uint8_t* volatile idle_rxbuf;
 volatile uint32_t rx_tc;
 volatile uint32_t rx_err;
 
-void dma_init();
+void dma_poweron();
+void dma_poweroff();
+void dma_init_rx_symbols();
 void dma_init_le();
 void dio_ssp_start();
 void dio_ssp_stop();
