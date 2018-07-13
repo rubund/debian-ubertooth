@@ -11,10 +11,10 @@
     </p>
   </description>
   <provides>
-    <modalias>usb:vffffp0004d*</modalias>
-    <modalias>usb:v1d50p6000d*</modalias>
-    <modalias>usb:v1d50p6001d*</modalias>
-    <modalias>usb:v1d50p6002d*</modalias>
-    <modalias>usb:v1d50p6003d*</modalias>
+    <modalias>usb:vFFFFp0004d*</modalias>
+    <modalias>usb:v1D50p6000d*</modalias>
+    <modalias>usb:v1D50p6001d*</modalias>
+    <modalias>usb:v1D50p6002d*</modalias>
+    <modalias>usb:v1D50p6003d*</modalias>
   </provides>
 </component>
