@@ -21,6 +21,8 @@
 
 #include "bluetooth_le.h"
 
+#include <string.h>
+
 extern u8 le_channel_idx;
 extern u8 le_hop_amount;
 
@@ -31,9 +33,11 @@ u16 btle_next_hop(le_state_t *le)
 	return phys;
 }
 
-u8 btle_channel_index(u8 channel) {
-	u8 idx;
-	channel /= 2;
+// calculate channel index from physical channel
+// channel is in range [2402, 2480]
+uint8_t btle_channel_index(uint16_t channel) {
+	uint8_t idx;
+	channel = (channel - 2402) / 2;
 	if (channel == 0)
 		idx = 37;
 	else if (channel < 12)
@@ -175,4 +179,64 @@ u32 btle_crcgen_lut(u32 crc_init, u8 *data, int len) {
 		state = (state >> 8) ^ btle_crc_lut[key];
 	}
 	return state;
+}
+
+/*
+ * Dewhiten and reverse the bit order of a buffer in place.
+ * Channel is a physical channel in the range [2402, 2480]
+ * TODO convert this to use whitening word
+ */
+void le_dewhiten(uint8_t *data, unsigned size, unsigned channel) {
+	unsigned i, j, bit;
+	unsigned idx = whitening_index[btle_channel_index(channel)];
+
+	for (i = 0; i < size; ++i) {
+		uint8_t out = 0;
+		for (j = 0; j < 8; ++j) {
+			bit = (data[i] >> (7-j)) & 1;
+			bit ^= whitening[idx];
+			idx = (idx + 1) % sizeof(whitening);
+			out |= bit << j;
+		}
+		data[i] = out;
+	}
+}
+
+/*
+ * Parse a channel map and populate the le_channel_remapping_t struct.
+ */
+void le_parse_channel_map(uint8_t *channel_map, le_channel_remapping_t *remapping) {
+	unsigned i, j, byte;
+	unsigned idx = 0;
+
+	memset(remapping, 0, sizeof(*remapping));
+
+	for (i = 0; i < 5; ++i) {
+		byte = channel_map[i];
+		for (j = 0; j < 8; ++j) {
+			if (byte & 1) {
+				remapping->channel_in_use[idx] = 1;
+				remapping->remapping_index[remapping->total_channels] = idx;
+				++remapping->total_channels;
+			} else {
+				remapping->channel_in_use[idx] = 0;
+			}
+
+			byte >>= 1;
+
+			++idx;
+			if (idx == 37)
+				break;
+		}
+	}
+}
+
+/*
+ * Map a channel index to a used index given a remapping struct.
+ */
+uint8_t le_map_channel(uint8_t channel_idx, le_channel_remapping_t *remapping) {
+	if (remapping->channel_in_use[channel_idx])
+		return channel_idx;
+	else
+		return remapping->remapping_index[channel_idx % remapping->total_channels];
 }

@@ -91,7 +91,7 @@ static u8 abDescriptors[] = {
 	MAX_PACKET_SIZE0,  		// bMaxPacketSize
 	LE_WORD(ID_VENDOR),		// idVendor
 	LE_WORD(ID_PRODUCT),		// idProduct
-	LE_WORD(0x0102),		// bcdDevice
+	LE_WORD(0x0103),		// bcdDevice
 	0x01,              		// iManufacturer
 	0x02,              		// iProduct
 	0x03,              		// iSerialNumber
@@ -272,7 +272,7 @@ usb_pkt_rx fifo[128];
 volatile u32 head = 0;
 volatile u32 tail = 0;
 
-void queue_init(void)
+void usb_queue_init(void)
 {
 	head = 0;
 	tail = 0;

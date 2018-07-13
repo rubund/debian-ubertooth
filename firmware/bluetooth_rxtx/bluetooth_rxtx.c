@@ -33,6 +33,7 @@
 #include "bluetooth_le.h"
 #include "cc2400_rangetest.h"
 #include "ego.h"
+#include "debug_uart.h"
 
 #define MIN(x,y)	((x)<(y)?(x):(y))
 #define MAX(x,y)	((x)>(y)?(x):(y))
@@ -49,6 +50,7 @@ volatile uint16_t hop_direct_channel = 0;      // for hopping directly to a chan
 volatile uint16_t hop_timeout = 158;
 volatile uint16_t requested_channel = 0;
 volatile uint16_t le_adv_channel = 2402;
+volatile int      cancel_follow = 0;
 
 /* bulk USB stuff */
 volatile uint8_t  idle_buf_clkn_high = 0;
@@ -542,7 +544,7 @@ static int vendor_request_handler(uint8_t request, uint16_t* request_params, uin
 		hop_mode = HOP_BTLE;
 		requested_mode = MODE_BT_FOLLOW_LE;
 
-		queue_init();
+		usb_queue_init();
 		cs_threshold_calc_and_set(channel);
 		break;
 
@@ -596,7 +598,7 @@ static int vendor_request_handler(uint8_t request, uint16_t* request_params, uin
 		hop_mode = HOP_NONE;
 		requested_mode = MODE_BT_PROMISC_LE;
 
-		queue_init();
+		usb_queue_init();
 		cs_threshold_calc_and_set(channel);
 		break;
 
@@ -652,6 +654,11 @@ static int vendor_request_handler(uint8_t request, uint16_t* request_params, uin
 		le.target[4] = data[1];
 		le.target[5] = data[0];
 		le.target_set = 1;
+		break;
+
+	case UBERTOOTH_CANCEL_FOLLOW:
+		// cancel following an active connection
+		cancel_follow = 1;
 		break;
 
 #ifdef TX_ENABLE
@@ -779,7 +786,32 @@ static void msleep(uint32_t millis)
 	}
 }
 
-void DMA_IRQHandler()
+void legacy_DMA_IRQHandler();
+void le_DMA_IRQHandler();
+void DMA_IRQHandler(void) {
+	if (mode == MODE_BT_FOLLOW_LE)
+		le_DMA_IRQHandler();
+	else
+		legacy_DMA_IRQHandler();
+
+	// DMA channel 7: debug UART
+	if (DMACIntStat & (1 << 7)) {
+		// TC -- DMA completed, unset flag so another printf can occur
+		if (DMACIntTCStat & (1 << 7)) {
+			DMACIntTCClear = (1 << 7);
+			debug_dma_active = 0;
+		}
+		// error -- blow up
+		if (DMACIntErrStat & (1 << 7)) {
+			DMACIntErrClr = (1 << 7);
+			// FIXME do something better here
+			USRLED_SET;
+			while (1) { }
+		}
+	}
+}
+
+void legacy_DMA_IRQHandler()
 {
 	if ( mode == MODE_RX_SYMBOLS
 	   || mode == MODE_BT_FOLLOW
@@ -1056,7 +1088,7 @@ void le_transmit(u32 aa, u8 len, u8 *data)
 	}
 
 	// whiten the data and copy it into the txbuf
-	int idx = whitening_index[btle_channel_index(channel-2402)];
+	int idx = whitening_index[btle_channel_index(channel)];
 	for (i = 0; i < len; ++i) {
 		byte = data[i];
 		txbuf[i+4] = 0;
@@ -1241,9 +1273,9 @@ void bt_stream_rx()
 
 	RXLED_CLR;
 
-	queue_init();
+	usb_queue_init();
 	dio_ssp_init();
-	dma_init();
+	dma_init_rx_symbols();
 	dio_ssp_start();
 
 	cc2400_rx();
@@ -1324,10 +1356,6 @@ void bt_stream_rx()
 		rx_err = 0;
 	}
 
-	/* This call is a nop so far. Since bt_rx_stream() starts the
-	 * stream, it makes sense that it would stop it. TODO - how
-	 * should setup/teardown be handled? Should every new mode be
-	 * starting from scratch? */
 	dio_ssp_stop();
 	cs_trigger_disable();
 }
@@ -1502,9 +1530,9 @@ void bt_generic_le(u8 active_mode)
 
 	RXLED_CLR;
 
-	queue_init();
+	usb_queue_init();
 	dio_ssp_init();
-	dma_init();
+	dma_init_rx_symbols();
 	dio_ssp_start();
 	cc2400_rx();
 
@@ -1632,7 +1660,7 @@ void bt_le_sync(u8 active_mode)
 
 	RXLED_CLR;
 
-	queue_init();
+	usb_queue_init();
 	dio_ssp_init();
 	dma_init_le();
 	dio_ssp_start();
@@ -1689,7 +1717,7 @@ void bt_le_sync(u8 active_mode)
 		u8 *p = (u8 *)packet;
 		packet[0] = le.access_address;
 
-		const uint32_t *whit = whitening_word[btle_channel_index(channel-2402)];
+		const uint32_t *whit = whitening_word[btle_channel_index(channel)];
 		for (i = 0; i < 4; i+= 4) {
 			uint32_t v = rxbuf1[i+0] << 24
 					   | rxbuf1[i+1] << 16
@@ -1837,7 +1865,7 @@ cleanup:
  * follows a known AA around */
 int cb_follow_le() {
 	int i, j, k;
-	int idx = whitening_index[btle_channel_index(channel-2402)];
+	int idx = whitening_index[btle_channel_index(channel)];
 
 	u32 access_address = 0;
 	for (i = 0; i < 31; ++i) {
@@ -1998,18 +2026,15 @@ void connection_follow_cb(u8 *packet) {
 	}
 }
 
+void le_phy_main(void);
 void bt_follow_le() {
+	le_phy_main();
+
+	/* old method
 	reset_le();
 	packet_cb = connection_follow_cb;
 	bt_le_sync(MODE_BT_FOLLOW_LE);
-
-	/* old non-sync mode
-	data_cb = cb_follow_le;
-	packet_cb = connection_follow_cb;
-	bt_generic_le(MODE_BT_FOLLOW_LE);
 	*/
-
-	mode = MODE_IDLE;
 }
 
 // issue state change message
@@ -2160,7 +2185,7 @@ int cb_le_promisc(char *unpacked) {
 	};
 
 	for (i = 0; i < 4; ++i) {
-		idx = whitening_index[btle_channel_index(channel-2402)];
+		idx = whitening_index[btle_channel_index(channel)];
 
 		// whiten the desired data
 		for (j = 0; j < (int)sizeof(desired[i]); ++j) {
@@ -2196,7 +2221,7 @@ int cb_le_promisc(char *unpacked) {
 			continue;
 
 		// found a match! unwhiten it and send it home
-		idx = whitening_index[btle_channel_index(channel-2402)];
+		idx = whitening_index[btle_channel_index(channel)];
 		for (j = 0; j < 4+3+3; ++j) {
 			u8 byte = 0;
 			for (k = 0; k < 8; k++) {
@@ -2322,7 +2347,7 @@ void rx_generic_sync(void) {
 	buf[2] = (reg_val >> 8) & 0xFF;
 	buf[3] = reg_val & 0xFF;
 
-	queue_init();
+	usb_queue_init();
 	clkn_start();
 
 	while (!(cc2400_status() & XOSC16M_STABLE));
@@ -2411,7 +2436,7 @@ void specan()
 
 	RXLED_SET;
 
-	queue_init();
+	usb_queue_init();
 	clkn_start();
 
 #ifdef UBERTOOTH_ONE
@@ -2526,6 +2551,10 @@ int main()
 	clkn_init();
 	ubertooth_usb_init(vendor_request_handler);
 	cc2400_idle();
+	dma_poweron();
+
+	debug_uart_init(0);
+	debug_printf("\n\n****UBERTOOTH BOOT****\n%s\n", compile_info);
 
 	while (1) {
 		handle_usb(clkn);
@@ -2553,6 +2582,7 @@ int main()
 					bt_stream_rx();
 					break;
 				case MODE_BT_FOLLOW_LE:
+					mode = MODE_BT_FOLLOW_LE;
 					bt_follow_le();
 					break;
 				case MODE_BT_PROMISC_LE:
