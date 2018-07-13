@@ -1,3 +1,12 @@
+ubertooth (2018.06.R1-1) unstable; urgency=medium
+
+  * New upstream release
+  * Refreshed patches. Using gbp-pq
+  * debian/control:
+    - Depend on newer version of libbtbb: 2018.06.R1
+
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 13 Jul 2018 16:37:42 +0200
+
 ubertooth (2017.03.R2-3) unstable; urgency=medium
 
   [ Helmut Grohne ]
