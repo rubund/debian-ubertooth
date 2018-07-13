@@ -15,7 +15,7 @@ DOPACKAGES = $(shell dh_listpackages)
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
-UPSTREAM_PACKAGE_VERSION ?= $(shell dpkg-parsechangelog --show-field Version | sed 's/-[^-]*$$//')
+UPSTREAM_PACKAGE_VERSION ?= $(shell echo $(DEB_VERSION) | sed 's/-[^-]*$$//')
 
 %:
 	dh $@
