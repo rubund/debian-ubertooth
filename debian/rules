@@ -3,13 +3,14 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+include /usr/share/dpkg/pkg-info.mk
+
 export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
-SOURCE_DATE ?= $(shell dpkg-parsechangelog --show-field Date)
-SOURCE_DATE_UTC ?= $(shell LC_ALL=C date -u -d "$(SOURCE_DATE)")
-CHANGELOG_DATE ?= $(shell LC_ALL=C date -u -d "$(SOURCE_DATE)" +"%d %B %Y")
+SOURCE_DATE_UTC ?= $(shell LC_ALL=C date -u -d @$(SOURCE_DATE_EPOCH))
+CHANGELOG_DATE ?= $(shell LC_ALL=C date -u -d @$(SOURCE_DATE_EPOCH) +"%d %B %Y")
 DOPACKAGES = $(shell dh_listpackages)
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
