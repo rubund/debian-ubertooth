@@ -1,11 +1,16 @@
-Description: Fixes install location of python package
-Author: Ruben Undheim <ruben.undheim@gmail.com>
+From: Ruben Undheim <ruben.undheim@gmail.com>
+Date: Fri, 13 Jul 2018 16:36:06 +0200
+Subject: Fixes install location of python package
 
-Index: ubertooth/host/python/specan_ui/CMakeLists.txt
-===================================================================
---- ubertooth.orig/host/python/specan_ui/CMakeLists.txt	2014-12-08 21:35:03.817571654 +0100
-+++ ubertooth/host/python/specan_ui/CMakeLists.txt	2014-12-08 21:35:03.813571654 +0100
-@@ -31,7 +31,7 @@
+---
+ host/python/specan_ui/CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/host/python/specan_ui/CMakeLists.txt b/host/python/specan_ui/CMakeLists.txt
+index c365bd5..21b206d 100644
+--- a/host/python/specan_ui/CMakeLists.txt
++++ b/host/python/specan_ui/CMakeLists.txt
+@@ -31,7 +31,7 @@ add_custom_command(OUTPUT ${OUTPUT}/timestamp
                     DEPENDS ${DEPS})
  
  add_custom_target(specan ALL DEPENDS ${OUTPUT}/timestamp)

@@ -1,14 +1,20 @@
-Description: When building the package, the source is not necessarily part
- of a git repository. This patch removes all git command executions. Additionally
- it replaces GIT_REVISION with the current Debian version number. This will go into
- some of the firmware files.
-Author: Ruben Undheim <ruben.undheim@gmail.com>
+From: Ruben Undheim <ruben.undheim@gmail.com>
+Date: Fri, 13 Jul 2018 16:36:06 +0200
+Subject: When building the package,
+ the source is not necessarily part of a git repository. This patch
+ removes all git command executions. Additionally it replaces GIT_REVISION
+ with the current Debian version number. This will go into some of the
+ firmware files.
 
-Index: ubertooth/firmware/common.mk
-===================================================================
---- ubertooth.orig/firmware/common.mk	2017-01-22 11:22:35.631519826 +0100
-+++ ubertooth/firmware/common.mk	2017-01-22 11:22:35.627519782 +0100
-@@ -52,13 +52,13 @@
+---
+ firmware/common.mk | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/firmware/common.mk b/firmware/common.mk
+index e6b6245..aacbd3e 100644
+--- a/firmware/common.mk
++++ b/firmware/common.mk
+@@ -52,13 +52,13 @@ ifeq ($(DISABLE_TX), )
  	UBERTOOTH_OPTS += -DTX_ENABLE
  endif
  
