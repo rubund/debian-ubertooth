@@ -1,3 +1,11 @@
+ubertooth (2018.06.R1-2) unstable; urgency=medium
+
+  * debian/upstream/metadata added
+  * debian/patches/04_no_git_for_debian.patch:
+    - Fix setting GIT_REVISION in patch
+
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Thu, 09 Aug 2018 10:48:40 +0200
+
 ubertooth (2018.06.R1-1) unstable; urgency=medium
 
   * New upstream release
