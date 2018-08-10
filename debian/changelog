@@ -5,7 +5,10 @@ ubertooth (2018.08.R1-1) unstable; urgency=medium
   * Simplify handling of revision patch so that it does not need
     to be updated for every new upstream release.
   * debian/source/lintian-overrides deleted since it is not needed anymore
-  * debian/control: New standards version 4.2.0 - no changes
+  * debian/compat: level 11
+  * debian/control:
+    - debhelper >= 11
+    - New standards version 4.2.0 - no changes
 
  -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 10 Aug 2018 12:24:01 +0200
 
