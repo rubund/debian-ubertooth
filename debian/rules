@@ -49,7 +49,8 @@ override_dh_auto_build:
 	dh_auto_build --sourcedirectory=host
 ifneq ($(filter ubertooth-firmware,$(DOPACKAGES)),)
 	dh_auto_build --sourcedirectory=firmware -- TIMESTAMP="-DTIMESTAMP=''" \
-	  COMPILE_BY="-D'COMPILE_BY=\"user\"'" COMPILE_HOST="-D'COMPILE_HOST=\"localhost\"'"
+	  COMPILE_BY="-D'COMPILE_BY=\"user\"'" COMPILE_HOST="-D'COMPILE_HOST=\"localhost\"'" \
+	  GIT_REVISION="-D'GIT_REVISION=\"$(UPSTREAM_PACKAGE_VERSION)\"'"
 endif
 	cat debian/ubertooth.pc.in | sed 's/DEB_HOST_MULTIARCH/$(DEB_HOST_MULTIARCH)/' | \
 	  sed 's/UPSTREAM_PACKAGE_VERSION/$(UPSTREAM_PACKAGE_VERSION)/' > debian/ubertooth.pc
