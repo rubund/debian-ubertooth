@@ -6,7 +6,7 @@ Files: *
 Copyright: 2010-2015 Jared Boone
            2010-2017 Mike Ossmann, Dominic Spill
            2012-2015 Will Code, Christopher Kilgour
-           2012-2017 Mike Ryan
+           2012-2018 Mike Ryan
 License: GPL-2+
 
 Files: firmware/common/lpcusb/target/usbhw_lpc.c
