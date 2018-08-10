@@ -1,3 +1,11 @@
+ubertooth (2018.08.R1-2) unstable; urgency=medium
+
+  * Move python-pyside.qtcore and python-pyside.qtgui from Depends to
+    Recommends since core functionality is not broken when they are not
+    present.
+
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 10 Aug 2018 13:32:26 +0200
+
 ubertooth (2018.08.R1-1) unstable; urgency=medium
 
   * New upstream release

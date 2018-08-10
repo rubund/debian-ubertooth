@@ -89,10 +89,10 @@ Depends: libubertooth1 (= ${binary:Version}),
          ${shlibs:Depends},
          ${misc:Depends},
          python,
-         python-numpy,
-         python-pyside.qtcore,
-         python-pyside.qtgui
-Recommends: ubertooth-firmware
+         python-numpy
+Recommends: ubertooth-firmware,
+            python-pyside.qtcore,
+            python-pyside.qtgui
 Suggests: ubertooth-firmware-source
 Description: 2.4 GHz wireless development platform for Bluetooth experimentation
  Project Ubertooth is an open source wireless development platform suitable for
