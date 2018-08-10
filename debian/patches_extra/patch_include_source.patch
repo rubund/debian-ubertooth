@@ -19,7 +19,7 @@ index 9ad4287..4812fc0 100644
  #endif
  
  # automatic git version when working out of git
--GIT_REVISION ?= -D'GIT_REVISION="$(shell dpkg-parsechangelog -l../debian/changelog -SVersion | sed 's/\(.*\)-.*/\1/')"'
+-GIT_REVISION ?= -D'GIT_REVISION="$(shell dpkg-parsechangelog -ldebian/changelog -SVersion | sed 's/\(.*\)-.*/\1/')"'
 +GIT_REVISION ?= -D'GIT_REVISION="REPLACE_ME_WITH_VERSION"'
  
  # compile info

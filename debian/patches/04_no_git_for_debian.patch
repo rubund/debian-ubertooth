@@ -29,7 +29,7 @@ index e6b6245..240880a 100644
  
  # automatic git version when working out of git
 -GIT_REVISION ?= -D'GIT_REVISION="git-$(shell git log --pretty=format:'%h' -n 1)$(DIRTY_FLAG)"'
-+GIT_REVISION ?= -D'GIT_REVISION="$(shell dpkg-parsechangelog -l../debian/changelog -SVersion | sed 's/\(.*\)-.*/\1/')"'
++GIT_REVISION ?= -D'GIT_REVISION="$(shell dpkg-parsechangelog -ldebian/changelog -SVersion | sed 's/\(.*\)-.*/\1/')"'
  
  # compile info
  COMPILE_BY ?= -D'COMPILE_BY="$(shell whoami)"'
