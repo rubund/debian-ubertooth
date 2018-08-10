@@ -1,2 +1,0 @@
-# Patch is applied in debian/rules:
-ubertooth source: patch-file-present-but-not-mentioned-in-series patch_include_source.patch

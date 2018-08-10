@@ -1,7 +1,8 @@
-diff -rupN firmware.orig/bootloader/Makefile firmware/bootloader/Makefile
---- firmware.orig/bootloader/Makefile	2015-09-11 18:47:28.402217627 +0200
-+++ firmware/bootloader/Makefile	2015-09-11 18:48:10.748926447 +0200
-@@ -115,7 +115,7 @@ LINKER_SCRIPT = LPC17xx_Linker_Script_bo
+diff --git a/firmware.orig/bootloader/Makefile b/firmware/bootloader/Makefile
+index bb71fad..0f2e301 100644
+--- a/firmware.orig/bootloader/Makefile
++++ b/firmware/bootloader/Makefile
+@@ -115,7 +115,7 @@ LINKER_SCRIPT = LPC17xx_Linker_Script_bootloader.ld
  #     Each directory must be seperated by a space.
  #     Use forward slashes for directory separators.
  #     For a directory that has spaces, enclose it in quotes.
@@ -10,21 +11,9 @@ diff -rupN firmware.orig/bootloader/Makefile firmware/bootloader/Makefile
  
  # Compiler flag to set the C Standard level.
  #     c89   = "ANSI" C
-diff -rupN firmware.orig/common.mk firmware/common.mk
---- firmware.orig/common.mk	2015-09-11 18:45:44.711406019 +0200
-+++ firmware/common.mk	2015-09-11 18:46:55.300946033 +0200
-@@ -115,7 +115,7 @@ LINKER_SCRIPT ?= LPC17xx_Linker_Script_w
- #     Each directory must be seperated by a space.
- #     Use forward slashes for directory separators.
- #     For a directory that has spaces, enclose it in quotes.
--EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src
-+EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src /usr/include/ubertooth
- 
- # Compiler flag to set the C Standard level.
- #     c89   = "ANSI" C
-diff --git a/firmware/common.mk b/firmware/common.mk
-index ffaab2f..44a5e00 100644
---- a/firmware/common.mk
+diff --git a/firmware.orig/common.mk b/firmware/common.mk
+index 9ad4287..4812fc0 100644
+--- a/firmware.orig/common.mk
 +++ b/firmware/common.mk
 @@ -58,7 +58,7 @@ endif
  #endif
@@ -35,3 +24,12 @@ index ffaab2f..44a5e00 100644
  
  # compile info
  COMPILE_BY ?= -D'COMPILE_BY="$(shell whoami)"'
+@@ -117,7 +117,7 @@ LINKER_SCRIPT ?= LPC17xx_Linker_Script_with_bootloader.ld
+ #     Each directory must be seperated by a space.
+ #     Use forward slashes for directory separators.
+ #     For a directory that has spaces, enclose it in quotes.
+-EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src
++EXTRAINCDIRS = $(LIBS_PATH) $(LPCUSB_PATH) ../../host/libubertooth/src /usr/include/ubertooth
+ 
+ # Compiler flag to set the C Standard level.
+ #     c89   = "ANSI" C
