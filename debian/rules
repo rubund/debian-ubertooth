@@ -33,7 +33,7 @@ override_dh_auto_configure:
 	cp -rf firmware ubertooth-firmware-source
 	cd ubertooth-firmware-source ; patch -R -Np2 < ../debian/patches/02_fix_missing_dfu.patch ; \
 	  patch -Np2 < ../debian/patches_extra/patch_include_source.patch
-	cd ubertooth-firmware-source ; sed -i 's/REPLACE_ME_WITH_VERSION/NOWVERSION/' common.mk
+	cd ubertooth-firmware-source ; sed -i 's/REPLACE_ME_WITH_VERSION/$(UPSTREAM_PACKAGE_VERSION)/' common.mk
 	GZIP=-9n tar --mtime='$(SOURCE_DATE_UTC)' --sort=name --owner=root --group=root \
 	  --mode=go=rX,u+rw,a-s -czvf ubertooth-firmware-source.tar.gz \
 	  ubertooth-firmware-source/
