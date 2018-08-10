@@ -9,6 +9,9 @@ ubertooth (2018.08.R1-1) unstable; urgency=medium
   * debian/control:
     - debhelper >= 11
     - New standards version 4.2.0 - no changes
+  * debain/rules:
+    - Pass --no-parallel to dh_auto_build for firmware since it does not build
+      reliably with multiple threads.
 
  -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 10 Aug 2018 12:24:01 +0200
 
