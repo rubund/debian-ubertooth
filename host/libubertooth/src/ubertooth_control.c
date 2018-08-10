@@ -724,11 +724,11 @@ uint32_t cmd_get_clock(struct libusb_device_handle* devh)
 	return clock;
 }
 
-int cmd_btle_sniffing(struct libusb_device_handle* devh, u16 num)
+int cmd_btle_sniffing(struct libusb_device_handle* devh, uint8_t do_follow)
 {
 	int r;
 
-	r = libusb_control_transfer(devh, CTRL_OUT, UBERTOOTH_BTLE_SNIFFING, num, 0,
+	r = libusb_control_transfer(devh, CTRL_OUT, UBERTOOTH_BTLE_SNIFFING, do_follow, 0,
 			NULL, 0, 1000);
 	if (r < 0) {
 		if (r == LIBUSB_ERROR_PIPE) {
@@ -866,11 +866,16 @@ int cmd_set_crc_verify(struct libusb_device_handle* devh, int verify)
 int cmd_poll(struct libusb_device_handle* devh, usb_pkt_rx *p)
 {
 	int r;
+	unsigned i;
 
-	r = libusb_control_transfer(devh, CTRL_IN, UBERTOOTH_POLL, 0, 0,
-			(u8 *)p, sizeof(usb_pkt_rx), 1000);
-	if (r < 0) {
-		show_libusb_error(r);
+	// retry up to three times due to stalls
+	for (i = 0; i < 3; ++i) {
+		r = libusb_control_transfer(devh, CTRL_IN, UBERTOOTH_POLL, 0, 0,
+				(u8 *)p, sizeof(usb_pkt_rx), 1000);
+		if (r == LIBUSB_ERROR_PIPE) // retry
+			continue;
+		if (r < 0)
+			show_libusb_error(r);
 		return r;
 	}
 	return r;
@@ -930,12 +935,16 @@ int cmd_btle_slave(struct libusb_device_handle* devh, u8 *mac_address)
 	return 0;
 }
 
-int cmd_btle_set_target(struct libusb_device_handle* devh, u8 *mac_address)
+int cmd_btle_set_target(struct libusb_device_handle* devh, uint8_t *mac_address, uint8_t mac_mask)
 {
 	int r;
+	uint8_t cmd_buf[7];
+
+	memcpy(cmd_buf, mac_address, 6);
+	cmd_buf[6] = mac_mask;
 
 	r = libusb_control_transfer(devh, CTRL_OUT, UBERTOOTH_BTLE_SET_TARGET, 0, 0,
-			mac_address, 6, 1000);
+			cmd_buf, 7, 1000);
 	if (r < 0) {
 		if (r == LIBUSB_ERROR_PIPE) {
 			fprintf(stderr, "control message unsupported\n");
