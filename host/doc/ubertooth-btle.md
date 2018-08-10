@@ -1,4 +1,4 @@
-# UBERTOOTH-BTLE 1 "March 2017" "Project Ubertooth" "User Commands"
+# UBERTOOTH-BTLE 1 "July 2018" "Project Ubertooth" "User Commands"
 
 ## NAME
 
@@ -29,6 +29,9 @@ sent between the central and peripheral. After the connection
 terminates, Ubertooth will return to the advertising channel and wait
 for another connection.
 
+No-follow mode is similar to follow mode, but it only logs advertising
+packets and will not follow connections as they are established.
+
 Promiscuous mode is an experimental mode for sniffing connections after
 they have already been established. This mode can be used to sniff
 long-lived connections.
@@ -45,7 +48,26 @@ sniff connections where the central or peripheral's BD ADDR is
 
     ubertooth-btle -f -t22:44:66:88:AA:CC
 
-In both sniffing modes, Ubertooth can log data to PCAP or PcapNG with a
+`-t` can also take a mask length in CIDR-like notation. Masks can be
+between 1 and 48 bits long, with a 48 bit mask matching the entire
+address. Using a /24 mask will filter on just the OUI. For example, to
+limit sniffing to just TI devices with the OUI 00:1A:7D, use the
+following:
+
+    ubertooth-btle -t 00:1A:7D:00:00:00/24
+
+Filters persist until they are explicitly cleared or the system restarts
+(either via `ubertooth-util -r` or unplug/replug). To clear a filter,
+use the special filter `none`. Example:
+
+    ubertooth-btle -t none
+
+When filtering, previous versions of the firmware would still log all
+advertising packets but only follow connections based on the filter
+parameters. As of 2018-06-R1, advertising packets that do not match the
+filter are dropped.
+
+In all sniffing modes, Ubertooth can log data to PCAP or PcapNG with a
 variety of pseudoheaders. The recommended logging format is PcapNG
 (`-r`) or PCAP with LE Pseudoheader (`-q`). For compatibility with
 crackle (see [USING WITH CRACKLE][]), use PCAP with PPI (`-c`).
@@ -69,6 +91,10 @@ PcapNG:
 
     ubertooth-btle -f -A 38 -r log.pcapng
 
+Log advertising packets without following connections:
+
+    ubertooth-btle -n
+
 Interfere with connections recovered with promiscuous mode:
 
     ubertooth-btle -p -I
@@ -86,6 +112,8 @@ Major modes:
 
  - `-f` :
    Follow mode: sniff connections as they are established
+ - `-n` :
+   No-follow mode: log advertising packets but don't follow connections
  - `-p` :
    Promiscuous mode: sniff already-established connections
  - `-s<BD ADDR>` : 
@@ -147,5 +175,5 @@ crackle(1): https://github.com/mikeryan/crackle
 
 ## COPYRIGHT
 
-`ubertooth-btle` is Copyright (C) 2012-2017 Mike Ryan. This tool is
+`ubertooth-btle` is Copyright (C) 2012-2018 Mike Ryan. This tool is
 released under the GPLv2. Refer to COPYING for futher details.
