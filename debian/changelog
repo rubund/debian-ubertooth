@@ -1,8 +1,13 @@
-ubertooth (2018.08.R1-1) UNRELEASED; urgency=medium
+ubertooth (2018.08.R1-1) unstable; urgency=medium
 
   * New upstream release
+    - Refreshed patches
+  * Simplify handling of revision patch so that it does not need
+    to be updated for every new upstream release.
+  * debian/source/lintian-overrides deleted since it is not needed anymore
+  * debian/control: New standards version 4.2.0 - no changes
 
- -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 10 Aug 2018 09:47:37 +0200
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Fri, 10 Aug 2018 12:24:01 +0200
 
 ubertooth (2018.06.R1-2) unstable; urgency=medium
 
