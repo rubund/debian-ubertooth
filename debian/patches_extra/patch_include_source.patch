@@ -22,3 +22,16 @@ diff -rupN firmware.orig/common.mk firmware/common.mk
  
  # Compiler flag to set the C Standard level.
  #     c89   = "ANSI" C
+diff --git a/firmware/common.mk b/firmware/common.mk
+index ffaab2f..44a5e00 100644
+--- a/firmware/common.mk
++++ b/firmware/common.mk
+@@ -58,7 +58,7 @@ endif
+ #endif
+ 
+ # automatic git version when working out of git
+-GIT_REVISION ?= -D'GIT_REVISION="$(shell dpkg-parsechangelog -l../debian/changelog -SVersion | sed 's/\(.*\)-.*/\1/')"'
++GIT_REVISION ?= -D'GIT_REVISION="REPLACE_ME_WITH_VERSION"'
+ 
+ # compile info
+ COMPILE_BY ?= -D'COMPILE_BY="$(shell whoami)"'
