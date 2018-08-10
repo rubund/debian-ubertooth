@@ -31,11 +31,11 @@ index b90fed6..a2cdec9 100644
  .PP
  .RS
 diff --git a/host/doc/man/ubertooth-btle.1 b/host/doc/man/ubertooth-btle.1
-index b97deb5..5f33ce7 100644
+index 110bd00..bd22f01 100644
 --- a/host/doc/man/ubertooth-btle.1
 +++ b/host/doc/man/ubertooth-btle.1
 @@ -1,7 +1,6 @@
- .TH UBERTOOTH\-BTLE 1 "March 2017" "Project Ubertooth" "User Commands"
+ .TH UBERTOOTH\-BTLE 1 "July 2018" "Project Ubertooth" "User Commands"
  .SH NAME
 -.PP
 -ubertooth\-btle \-\- Bluetooth Low Energy (BLE) sniffing and more
@@ -43,10 +43,10 @@ index b97deb5..5f33ce7 100644
  .SH SYNOPSIS
  .PP
  .RS
-@@ -194,4 +193,4 @@ Refer to \fB\fCcrackle\fR documentation for further details.
+@@ -235,4 +234,4 @@ Refer to \fB\fCcrackle\fR documentation for further details.
  .SH COPYRIGHT
  .PP
- \fB\fCubertooth\-btle\fR is Copyright (C) 2012\-2017 Mike Ryan. This tool is
+ \fB\fCubertooth\-btle\fR is Copyright (C) 2012\-2018 Mike Ryan. This tool is
 -released under the GPLv2. Refer to COPYING for futher details.
 +released under the GPLv2. Refer to COPYING for further details.
 diff --git a/host/doc/man/ubertooth-debug.1 b/host/doc/man/ubertooth-debug.1

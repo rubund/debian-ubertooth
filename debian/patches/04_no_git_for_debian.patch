@@ -11,7 +11,7 @@ Subject: When building the package,
  1 file changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/firmware/common.mk b/firmware/common.mk
-index e6b6245..aacbd3e 100644
+index e6b6245..240880a 100644
 --- a/firmware/common.mk
 +++ b/firmware/common.mk
 @@ -52,13 +52,13 @@ ifeq ($(DISABLE_TX), )
