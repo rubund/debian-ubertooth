@@ -9,12 +9,12 @@ Build-Depends: debhelper (>= 11),
                pkg-config,
                libbluetooth-dev,
                libbtbb-dev (>= 2018.06.R1),
-               python-all-dev,
+               python-all,
                txt2man
 Build-Depends-Indep: gcc-arm-none-eabi,
                      libnewlib-arm-none-eabi,
                      libstdc++-arm-none-eabi-newlib
-Standards-Version: 4.2.0
+Standards-Version: 4.2.1
 Vcs-Browser: https://github.com/rubund/debian-ubertooth/tree/master
 Vcs-Git: https://github.com/rubund/debian-ubertooth.git
 Homepage: http://ubertooth.sourceforge.net/

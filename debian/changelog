@@ -1,3 +1,14 @@
+ubertooth (2018.08.R1-3) unstable; urgency=medium
+
+  [ Helmut Grohne ]
+  * Demote Build-Depends: python-all-dev to python-all. (Closes: #909553)
+
+  [ Ruben Undheim ]
+  * debian/control:
+    - New standards version 4.2.1 - no changes
+
+ -- Ruben Undheim <ruben.undheim@gmail.com>  Tue, 25 Sep 2018 10:40:00 +0200
+
 ubertooth (2018.08.R1-2) unstable; urgency=medium
 
   * Move python-pyside.qtcore and python-pyside.qtgui from Depends to
