@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 11),
                pkg-config,
                libbluetooth-dev,
                libbtbb-dev (>= 2018.06.R1),
-               python-all,
+               python-all:any,
                txt2man
 Build-Depends-Indep: gcc-arm-none-eabi,
                      libnewlib-arm-none-eabi,
