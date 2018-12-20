@@ -15,8 +15,8 @@ Build-Depends-Indep: gcc-arm-none-eabi,
                      libnewlib-arm-none-eabi,
                      libstdc++-arm-none-eabi-newlib
 Standards-Version: 4.2.1
-Vcs-Browser: https://github.com/rubund/debian-ubertooth/tree/master
-Vcs-Git: https://github.com/rubund/debian-ubertooth.git
+Vcs-Browser: https://salsa.debian.org/rubund/ubertooth
+Vcs-Git: https://salsa.debian.org/rubund/ubertooth.git
 Homepage: http://ubertooth.sourceforge.net/
 
 Package: libubertooth1
