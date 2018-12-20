@@ -91,7 +91,7 @@ static u8 abDescriptors[] = {
 	MAX_PACKET_SIZE0,  		// bMaxPacketSize
 	LE_WORD(ID_VENDOR),		// idVendor
 	LE_WORD(ID_PRODUCT),		// idProduct
-	LE_WORD(0x0105),		// bcdDevice
+	LE_WORD(0x0106),		// bcdDevice
 	0x01,              		// iManufacturer
 	0x02,              		// iProduct
 	0x03,              		// iSerialNumber
@@ -212,7 +212,7 @@ VendorRequestHandler *v_req_handler;
 BOOL usb_vendor_request_handler(TSetupPacket *pSetup, int *piLen, u8 **ppbData)
 {
 	int rv;
-	u16 params[2] = {pSetup->wValue, pSetup->wIndex};
+	u16 params[3] = {pSetup->wValue, pSetup->wIndex, pSetup->wLength};
 	rv = v_req_handler(pSetup->bRequest, params, *ppbData, piLen);
 	return (BOOL) (rv==1);
 }

@@ -25,7 +25,7 @@
 #include <stdint.h>
 
 // increment on every API change
-#define UBERTOOTH_API_VERSION 0x0105
+#define UBERTOOTH_API_VERSION 0x0106
 
 #define DMA_SIZE 50
 
@@ -111,7 +111,11 @@ enum ubertooth_usb_commands {
 	UBERTOOTH_TX_GENERIC_PACKET  = 68,
 	UBERTOOTH_FIX_CLOCK_DRIFT    = 69,
 	UBERTOOTH_CANCEL_FOLLOW      = 70,
+	UBERTOOTH_LE_SET_ADV_DATA    = 71,
 };
+
+// maximum adv data len: 32 - (2 + 6 + 3)
+#define LE_ADV_MAX_LEN 21
 
 enum jam_modes {
 	JAM_NONE       = 0,
