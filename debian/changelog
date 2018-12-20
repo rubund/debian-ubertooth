@@ -3,6 +3,8 @@ ubertooth (2018.12.R1-1) unstable; urgency=medium
   * New upstream release
   * debian/libubertooth1.symbols:
     - Added new symbol in symbols file
+  * debian/gitlab-ci.yml:
+    - Enable CI on salsa.debian.org
 
  -- Ruben Undheim <ruben.undheim@gmail.com>  Thu, 20 Dec 2018 10:18:26 +0100
 
