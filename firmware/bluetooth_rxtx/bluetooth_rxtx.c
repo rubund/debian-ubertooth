@@ -75,8 +75,10 @@ volatile int8_t rssi_threshold = -30;  // -54dBm - 30 = -84dBm
 /* Generic TX stuff */
 generic_tx_packet tx_pkt;
 
-/* le stuff */
+/* le slave stuff */
 uint8_t slave_mac_address[6] = { 0, };
+uint8_t le_adv_data[LE_ADV_MAX_LEN] = { 0x02, 0x01, 0x05 };
+unsigned le_adv_len = 3;
 
 le_state_t le = {
 	.access_address = 0x8e89bed6,           // advertising channel access address
@@ -191,6 +193,7 @@ static int vendor_request_handler(uint8_t request, uint16_t* request_params, uin
 	usb_pkt_rx* p = NULL;
 	uint16_t reg_val;
 	uint8_t i;
+	unsigned data_in_len = request_params[2];
 
 	switch (request) {
 
@@ -646,11 +649,19 @@ static int vendor_request_handler(uint8_t request, uint16_t* request_params, uin
 		requested_mode = MODE_BT_SLAVE_LE;
 		break;
 
+	case UBERTOOTH_LE_SET_ADV_DATA:
+		// make sure the data fits in our buffer
+		if (data_in_len > LE_ADV_MAX_LEN)
+			return 0;
+		le_adv_len = data_in_len;
+		memcpy(le_adv_data, data, le_adv_len);
+		break;
+
 	case UBERTOOTH_BTLE_SET_TARGET:
 		// Addresses appear in packets in reverse-octet order.
 		// Store the target address in reverse order so that we can do a simple memcmp later
 		if (data[6] > 48) {
-			return 1; // invalid mask
+			return 0; // invalid mask
 		}
 		else if (data[6] == 0) {
 			le.target_set = 0;
@@ -1096,52 +1107,45 @@ static void cc2400_tx_sync(uint32_t sync)
  * All modulation parameters are set within this function. The data
  * should not be pre-whitened, but the CRC should be calculated and
  * included in the data length.
+ *
+ * FIXME: Total packet len must be <= 32 bytes for Reasons. Longer
+ * packets will be quietly truncated.
  */
 void le_transmit(u32 aa, u8 len, u8 *data)
 {
 	unsigned i, j;
 	int bit;
-	u8 txbuf[64];
-	u8 tx_len;
+	u8 txbuf[32];
 	u8 byte;
-	u16 gio_save;
+	uint32_t sync = rbit(aa);
 
-	// first four bytes: AA
-	for (i = 0; i < 4; ++i) {
-		byte = aa & 0xff;
-		aa >>= 8;
-		txbuf[i] = 0;
-		for (j = 0; j < 8; ++j) {
-			txbuf[i] |= (byte & 1) << (7 - j);
-			byte >>= 1;
-		}
-	}
+	// lol
+	if (len > 32)
+		len = 32;
 
 	// whiten the data and copy it into the txbuf
 	int idx = whitening_index[btle_channel_index(channel)];
 	for (i = 0; i < len; ++i) {
 		byte = data[i];
-		txbuf[i+4] = 0;
+		txbuf[i] = 0;
 		for (j = 0; j < 8; ++j) {
 			bit = (byte & 1) ^ whitening[idx];
 			idx = (idx + 1) % sizeof(whitening);
 			byte >>= 1;
-			txbuf[i+4] |= bit << (7 - j);
+			txbuf[i] |= bit << (7 - j);
 		}
 	}
-
-	len += 4; // include the AA in len
 
 	// Bluetooth-like modulation
 	cc2400_set(MANAND,  0x7fff);
 	cc2400_set(LMTST,   0x2b22);    // LNA and receive mixers test register
 	cc2400_set(MDMTST0, 0x134b);    // no PRNG
 
-	cc2400_set(GRMDM,   0x0c01);
-	// 0 00 01 1 000 00 0 00 0 1
+	cc2400_set(GRMDM,   0x0ce1);
+	// 0 00 01 1 001 11 0 00 0 1
 	//      |  | |   |  +--------> CRC off
-	//      |  | |   +-----------> sync word: 8 MSB bits of SYNC_WORD
-	//      |  | +---------------> 0 preamble bytes of 01010101
+	//      |  | |   +-----------> sync word: all 32 bits of SYNC_WORD
+	//      |  | +---------------> 1 preamble byte of 01010101
 	//      |  +-----------------> packet mode
 	//      +--------------------> buffered mode
 
@@ -1150,16 +1154,11 @@ void le_transmit(u32 aa, u8 len, u8 *data)
 	cc2400_set(MDMCTRL, 0x0040);    // 250 kHz frequency deviation
 	cc2400_set(INT,     0x0014);    // FIFO_THRESHOLD: 20 bytes
 
-	// sync byte depends on the first transmitted bit of the AA
-	if (aa & 1)
-		cc2400_set(SYNCH,   0xaaaa);
-	else
-		cc2400_set(SYNCH,   0x5555);
+	// set sync word to bit-reversed AA
+	cc2400_set(SYNCL,   sync & 0xffff);
+	cc2400_set(SYNCH,   (sync >> 16) & 0xffff);
 
-	// set GIO to FIFO_FULL
-	gio_save = cc2400_get(IOCFG);
-	cc2400_set(IOCFG, (GIO_FIFO_FULL << 9) | (gio_save & 0x1ff));
-
+	// turn on the radio
 	while (!(cc2400_status() & XOSC16M_STABLE));
 	cc2400_strobe(SFSON);
 	while (!(cc2400_status() & FS_LOCK));
@@ -1168,16 +1167,10 @@ void le_transmit(u32 aa, u8 len, u8 *data)
 	PAEN_SET;
 #endif
 	while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
-	cc2400_strobe(STX);
 
-	// put the packet into the FIFO
-	for (i = 0; i < len; i += 16) {
-		while (GIO6) ; // wait for the FIFO to drain (FIFO_FULL false)
-		tx_len = len - i;
-		if (tx_len > 16)
-			tx_len = 16;
-		cc2400_fifo_write(tx_len, txbuf + i);
-	}
+	// copy the packet to the FIFO and strobe STX
+	cc2400_fifo_write(len, txbuf);
+	cc2400_strobe(STX);
 
 	while ((cc2400_get(FSMSTATE) & 0x1f) != STATE_STROBE_FS_ON);
 	TXLED_CLR;
@@ -1188,9 +1181,6 @@ void le_transmit(u32 aa, u8 len, u8 *data)
 #ifdef UBERTOOTH_ONE
 	PAEN_CLR;
 #endif
-
-	// reset GIO
-	cc2400_set(IOCFG, gio_save);
 }
 
 void le_jam(void) {
@@ -2323,43 +2313,45 @@ void bt_promisc_le() {
 void bt_slave_le() {
 	u32 calc_crc;
 	int i;
+	uint8_t adv_ind[32] = { 0x00, };
+	uint8_t adv_ind_len;
 
-	u8 adv_ind[] = {
-		// LL header
-		0x00, 0x09,
+	if (le_adv_len > LE_ADV_MAX_LEN) {
+		requested_mode = MODE_IDLE;
+		return;
+	}
 
-		// advertising address
-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-
-		// advertising data
-		0x02, 0x01, 0x05,
-
-		// CRC (calc)
-		0xff, 0xff, 0xff,
-	};
-
-	u8 adv_ind_len = sizeof(adv_ind) - 3;
+	adv_ind_len = 6 + le_adv_len;
+	adv_ind[1] = adv_ind_len;
 
 	// copy the user-specified mac address
 	for (i = 0; i < 6; ++i)
 		adv_ind[i+2] = slave_mac_address[5-i];
 
+	// copy in the adv data
+	memcpy(adv_ind + 2 + 6, le_adv_data, le_adv_len);
+
+	// total: 2 + 6 + le_adv_len
+	adv_ind_len += 2;
+
 	calc_crc = btle_calc_crc(le.crc_init_reversed, adv_ind, adv_ind_len);
-	adv_ind[adv_ind_len+0] = (calc_crc >>  0) & 0xff;
-	adv_ind[adv_ind_len+1] = (calc_crc >>  8) & 0xff;
-	adv_ind[adv_ind_len+2] = (calc_crc >> 16) & 0xff;
+	adv_ind[adv_ind_len + 0] = (calc_crc >>  0) & 0xff;
+	adv_ind[adv_ind_len + 1] = (calc_crc >>  8) & 0xff;
+	adv_ind[adv_ind_len + 2] = (calc_crc >> 16) & 0xff;
 
 	clkn_start();
 
+	// enable USB interrupts due to busy waits
+	ISER0 = ISER0_ISE_USB;
+
 	// spam advertising packets
 	while (requested_mode == MODE_BT_SLAVE_LE) {
-		ICER0 = ICER0_ICE_USB;
-		ICER0 = ICER0_ICE_DMA;
 		le_transmit(0x8e89bed6, adv_ind_len+3, adv_ind);
-		ISER0 = ISER0_ISE_USB;
-		ISER0 = ISER0_ISE_DMA;
 		msleep(100);
 	}
+
+	// disable USB interrupts
+	ICER0 = ICER0_ICE_USB;
 }
 
 void rx_generic_sync(void) {
