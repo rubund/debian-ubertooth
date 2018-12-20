@@ -77,6 +77,7 @@ libubertooth.so.1 libubertooth1 #MINVER#
  cmd_afh@Base 2015.10.R1+20161126gitf85a6a2
  cmd_fix_clock_drift@Base 2015.10.R1+20161126gitf85a6a2
  cmd_hop@Base 2015.10.R1+20161126gitf85a6a2
+ cmd_le_set_adv_data@Base 2018.12.R1
  cmd_trim_clock@Base 2015.10.R1+20161126gitf85a6a2
  cmd_tx_syms@Base 2015.10.R1+20161126gitf85a6a2
  do_exit@Base 2015.10.R1+20161126gitf85a6a2
